@@ -9,10 +9,16 @@ project(robot_simulation)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  rospy
   geometry_msgs
+  sensor_msgs
   std_msgs
+  nav_msgs
   robot_simulation_messages
   smach_ros
+  cv_bridge
+  image_transport
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -157,10 +163,6 @@ target_link_libraries(${PROJECT_NAME}_move_service_provider
    ${catkin_LIBRARIES}
  )
 
-add_executable(${PROJECT_NAME}_move_the_robot src/move_the_robot.cpp)
-target_link_libraries(${PROJECT_NAME}_move_the_robot
-   ${catkin_LIBRARIES}
- )
 
 add_executable(${PROJECT_NAME}_person src/person.cpp)
 target_link_libraries(${PROJECT_NAME}_person
@@ -177,10 +179,10 @@ target_link_libraries(${PROJECT_NAME}_person
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(PROGRAMS
+  scripts/go_to_point_action.py scripts/go_to_point_ball.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

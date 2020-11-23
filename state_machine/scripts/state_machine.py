@@ -190,8 +190,8 @@ class Move(smach.State):
                     #   Declare a geometry_msgs/Pose for the random position
                     random_ = Pose()
                     #   Define the random components (x, y) of this random position
-                    random_.position.x = random.randint(0, width)
-                    random_.position.y = random.randint(0, height)
+                    random_.position.x = random.randint(-width/2, width/2)
+                    random_.position.y = random.randint(-height/2, height/2)
                     #   Call the service to reach this position
                     reachPosition(random_, 'Moving to a random position')
                     #   Increment the level of the robot fatigue
