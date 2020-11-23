@@ -157,6 +157,11 @@ target_link_libraries(${PROJECT_NAME}_move_service_provider
    ${catkin_LIBRARIES}
  )
 
+add_executable(${PROJECT_NAME}_move_the_robot src/move_the_robot.cpp)
+target_link_libraries(${PROJECT_NAME}_move_the_robot
+   ${catkin_LIBRARIES}
+ )
+
 add_executable(${PROJECT_NAME}_person src/person.cpp)
 target_link_libraries(${PROJECT_NAME}_person
    ${catkin_LIBRARIES}
