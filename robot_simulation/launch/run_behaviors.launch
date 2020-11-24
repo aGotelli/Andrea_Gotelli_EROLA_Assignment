@@ -24,8 +24,9 @@
     <!-- Launch the node simulating the person -->
     <node pkg="robot_simulation" type="robot_simulation_person" name="person"  output="screen"/>
 
-    <!-- Launch the node for the state machine, which controls the robot behaviors -->
+    <!-- Launch the node for the state machine, which controls the robot behaviors
     <node pkg="state_machine" type="state_machine.py" name="state_machine"  output="screen"/>
+    -->
 
 
 
