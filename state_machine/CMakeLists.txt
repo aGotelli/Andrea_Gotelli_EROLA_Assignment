@@ -13,6 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   smach_ros
   geometry_msgs
   robot_simulation_messages
+  actionlib_msgs
+  actionlib
 )
 
 ## System dependencies are found with CMake's conventions
