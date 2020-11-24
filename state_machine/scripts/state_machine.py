@@ -98,10 +98,13 @@ def reachPosition(pose, info):
     except rospy.ServiceException as e:
         print("Service call failed: %s"%e)
 
+# Creates the SimpleActionClient, passing the type of the action
+# (PlanningAction) to the constructor.
+client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
+
 def reachPosition(pose):
-    # Creates the SimpleActionClient, passing the type of the action
-    # (PlanningAction) to the constructor.
-    client = actionlib.SimpleActionClient('robot/reaching_goal', robot_simulation_messages.msg.PlanningAction)
+    #   Print a log of the given postion
+    print("Peaching position: ", pose.position.x , ", ", pose.position.y)
 
     # Waits until the action server has started up and started
     # listening for goals.
@@ -116,6 +119,7 @@ def reachPosition(pose):
     # Waits for the server to finish performing the action.
     client.wait_for_result()
 
+
 ##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
 #    \param level [integer] is the current level of fatigue of the robot.
@@ -125,11 +129,10 @@ def reachPosition(pose):
 #    eccessible for the user.
 #
 def isTired(fatigue_level):
-    return False
-#    if fatigue_level >= fatigue_threshold:
- #       return True
-  #  else :
-   #     return False
+    if fatigue_level >= fatigue_threshold:
+        return True
+    else :
+        return False
 
 ##
 #   \class Move
@@ -154,7 +157,7 @@ class Move(smach.State):
     def __init__(self):
 
             smach.State.__init__(self,
-                                 #outcomes=['tired','playing'],
+                                 outcomes=['tired'],
                                  input_keys=['move_fatigue_counter_in', 'move_person_position_in'],
                                  output_keys=['move_fatigue_counter_out', 'move_person_position_out'])
             #   Definition of the ROS subscriber to account if the person wish to interact with the robot
@@ -212,7 +215,7 @@ class Move(smach.State):
                     #   Print a log to inform about the fact that the robot is tired
                     print('Robot is tired of moving...')
                     #   Return 'tired' to change the state
-                    #return 'tired'
+                    return 'tired'
                 else :
                     #   If none of the previous was true, then continue with the Move behavior
                     #   Declare a geometry_msgs/Pose for the random position
@@ -257,7 +260,7 @@ class Rest(smach.State):
     #
     def execute(self, userdata):
         #   Call the service to reach the position corresponding to the sleeping position
-        reachPosition(sleep_station, 'Going to sleep...')
+        reachPosition(sleep_station)
         #   Sleep for some time
         print('Sleeping...')
         rospy.sleep(10)
@@ -360,14 +363,14 @@ if __name__ == "__main__":
     random.seed()
 
     #   Retrieve the parameter about the world dimensions
-    width = rospy.get_param('world_width', 20)
-    height = rospy.get_param('world_height', 20)
+    width = rospy.get_param('/world_width', 20)
+    height = rospy.get_param('/world_height', 20)
 
     #   Retrieve parameters about the sleeping position
-    sleep_station.position.x = rospy.get_param('sleep_x_coord', 0)
-    sleep_station.position.y = rospy.get_param('sleep_y_coord', 0)
+    sleep_station.position.x = rospy.get_param('/sleep_x_coord', 0)
+    sleep_station.position.y = rospy.get_param('/sleep_y_coord', 0)
 
-    fatigue_threshold = rospy.get_param('fatigue_threshold', 5)
+    fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
 
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['behavior_interface'])
@@ -378,12 +381,16 @@ if __name__ == "__main__":
     with sm:
         # Add states to the container
         smach.StateMachine.add('MOVE', Move(),
-                               #transitions={'tired':'REST', 'playing':'PLAY'},
+                               transitions={'tired':'REST'},
                                remapping={'move_fatigue_counter_in':'fatigue_level',
                                           'move_fatigue_counter_out':'fatigue_level',
                                           'move_person_position_out':'person',
                                           'move_person_position_in':'person'})
 
+        smach.StateMachine.add('REST', Rest(),
+                               transitions={'rested':'MOVE'},
+                               remapping={'rest_fatigue_counter_in':'fatigue_level',
+                                          'rest_fatigue_counter_out':'fatigue_level'})
 
 
 
