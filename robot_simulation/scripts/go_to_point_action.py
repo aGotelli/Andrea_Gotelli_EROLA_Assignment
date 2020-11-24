@@ -24,7 +24,7 @@ desired_position_.z = 0
 yaw_precision_ = math.pi / 9  # +/- 20 degree allowed
 yaw_precision_2_ = math.pi / 90  # +/- 2 degree allowed
 dist_precision_ = 0.1
-kp_a = 3.0  ## In ROS Noetic, it may be necessary to change the sign of this proportional controller
+kp_a = -3.0
 kp_d = 0.2
 ub_a = 0.6
 lb_a = -0.5
@@ -73,7 +73,7 @@ def normalize_angle(angle):
 def fix_yaw(des_pos):
     global yaw_, pub, yaw_precision_2_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
-    err_yaw = normalize_angle(yaw_ - desired_yaw)
+    err_yaw = normalize_angle(desired_yaw - yaw_)
     #rospy.loginfo("Yaw error: %s", err_yaw)
 
     twist_msg = Twist()
@@ -95,15 +95,14 @@ def fix_yaw(des_pos):
 def go_straight_ahead(des_pos):
     global yaw_, pub, yaw_precision_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
-    err_yaw = yaw_ - desired_yaw
     err_pos = math.sqrt(pow(des_pos.y - position_.y, 2) +
                         pow(des_pos.x - position_.x, 2))
-    err_yaw = normalize_angle(yaw_ - desired_yaw)
+    err_yaw = normalize_angle(desired_yaw - yaw_)
     #rospy.loginfo(err_yaw)
 
     if err_pos > dist_precision_:
         twist_msg = Twist()
-        twist_msg.linear.x = 0.3
+        twist_msg.linear.x = 0.5
         if twist_msg.linear.x > ub_d:
             twist_msg.linear.x = ub_d
 
@@ -131,8 +130,8 @@ def planning(goal):
     global state_, desired_position_
     global act_s
 
-    desired_position_.x = goal.target_pose.pose.position.x
-    desired_position_.y = goal.target_pose.pose.position.y
+    desired_position_.x = goal.target_pose.position.x
+    desired_position_.y = goal.target_pose.position.y
 
     state_ = 0
     rate = rospy.Rate(20)
@@ -182,7 +181,7 @@ def main():
     act_s.start()
 
     rate = rospy.Rate(20)
-
+    rospy.loginfo("Action Server for controlling the robot is online")
     while not rospy.is_shutdown():
         rate.sleep()
 
