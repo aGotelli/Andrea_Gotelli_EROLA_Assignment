@@ -6,11 +6,21 @@
   <gazebo reference="link_chassis">
     <material>Gazebo/Orange</material>
   </gazebo>
+
   <gazebo reference="link_left_wheel">
     <material>Gazebo/Blue</material>
   </gazebo>
+
   <gazebo reference="link_right_wheel">
     <material>Gazebo/Blue</material>
+  </gazebo>
+
+  <gazebo reference="link_neck">
+    <material>Gazebo/Brown</material>
+  </gazebo>
+
+  <gazebo reference="camera_link">
+    <material>Gazebo/Black</material>
   </gazebo>
 
   <gazebo>
@@ -33,6 +43,7 @@
   <!-- ros_control plugin -->
   <gazebo>
     <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+        <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
     </plugin>
   </gazebo>
 
