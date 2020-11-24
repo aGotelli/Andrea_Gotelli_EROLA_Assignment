@@ -51,6 +51,16 @@ from robot_simulation_messages.srv import MoveTo
 from robot_simulation_messages.msg import PersonCalling
 from robot_simulation_messages.srv import GiveGesture
 
+# Brings in the SimpleActionClient
+import actionlib
+import robot_simulation_messages.msg
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/terminal_state.h>
+#include <learning_actionlib/FibonacciAction.h>
+
+from deprecated import deprecated
+
+
 ##
 #   \brief Define the width of the discretized world. It is a parameter defined by the user.
 width = 0
@@ -79,6 +89,7 @@ move_to_pos_client = rospy.ServiceProxy('/MoveToPosition', MoveTo)
 #
 #    This function calls the service /MoveToPosition and prints out a string. Its usage should
 #    preferred insted of pasting the same lines of code around.
+@deprecated(version='0.2', reason="You should use the actionlib server")
 def reachPosition(pose, info):
     rospy.wait_for_service('/MoveToPosition')
     try:
@@ -87,7 +98,23 @@ def reachPosition(pose, info):
     except rospy.ServiceException as e:
         print("Service call failed: %s"%e)
 
+def reachPosition(pose):
+    # Creates the SimpleActionClient, passing the type of the action
+    # (PlanningAction) to the constructor.
+    client = actionlib.SimpleActionClient('robot/reaching_goal', robot_simulation_messages.msg.PlanningAction)
 
+    # Waits until the action server has started up and started
+    # listening for goals.
+    client.wait_for_server()
+
+    # Creates a goal to send to the action server.
+    goal = robot_simulation_messages.msg.PlanningGoal(pose)
+
+    # Sends the goal to the action server.
+    client.send_goal(goal)
+
+    # Waits for the server to finish performing the action.
+    client.wait_for_result()
 
 ##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
@@ -98,10 +125,11 @@ def reachPosition(pose, info):
 #    eccessible for the user.
 #
 def isTired(fatigue_level):
-    if fatigue_level >= fatigue_threshold:
-        return True
-    else :
-        return False
+    return False
+#    if fatigue_level >= fatigue_threshold:
+ #       return True
+  #  else :
+   #     return False
 
 ##
 #   \class Move
@@ -126,7 +154,7 @@ class Move(smach.State):
     def __init__(self):
 
             smach.State.__init__(self,
-                                 outcomes=['tired','playing'],
+                                 #outcomes=['tired','playing'],
                                  input_keys=['move_fatigue_counter_in', 'move_person_position_in'],
                                  output_keys=['move_fatigue_counter_out', 'move_person_position_out'])
             #   Definition of the ROS subscriber to account if the person wish to interact with the robot
@@ -177,14 +205,14 @@ class Move(smach.State):
                 #   Reset the person willing
                 self.person_willing  = "none"
                 #   Return 'plying' to change the state
-                return 'playing'
+                #return 'playing'
             else :
                 #   Check is the robot is tired
                 if isTired(userdata.move_fatigue_counter_in) :
                     #   Print a log to inform about the fact that the robot is tired
                     print('Robot is tired of moving...')
                     #   Return 'tired' to change the state
-                    return 'tired'
+                    #return 'tired'
                 else :
                     #   If none of the previous was true, then continue with the Move behavior
                     #   Declare a geometry_msgs/Pose for the random position
@@ -193,7 +221,7 @@ class Move(smach.State):
                     random_.position.x = random.randint(-width/2, width/2)
                     random_.position.y = random.randint(-height/2, height/2)
                     #   Call the service to reach this position
-                    reachPosition(random_, 'Moving to a random position')
+                    reachPosition(random_)
                     #   Increment the level of the robot fatigue
                     userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
                     #   Print a log to show the level of fatigue
@@ -313,6 +341,9 @@ class Play(smach.State):
             print('Level of fatigue : ', userdata.play_fatigue_counter_in)
         return 'stop_play'
 
+
+
+
 ##
 #   \brief __main__ intializes the ros node and the smach state machine
 #
@@ -320,7 +351,6 @@ class Play(smach.State):
 #   It also retrieves the parameters from the ros parameters server and the user data
 #   exchanged among the state machine states.
 #
-
 if __name__ == "__main__":
 #    main()
 #def main():
@@ -348,25 +378,13 @@ if __name__ == "__main__":
     with sm:
         # Add states to the container
         smach.StateMachine.add('MOVE', Move(),
-                               transitions={'tired':'REST',
-                                            'playing':'PLAY'},
+                               #transitions={'tired':'REST', 'playing':'PLAY'},
                                remapping={'move_fatigue_counter_in':'fatigue_level',
                                           'move_fatigue_counter_out':'fatigue_level',
                                           'move_person_position_out':'person',
                                           'move_person_position_in':'person'})
 
-        smach.StateMachine.add('REST', Rest(),
-                               transitions={'rested':'MOVE'},
-                               remapping={'rest_fatigue_counter_in':'fatigue_level',
-                                          'rest_fatigue_counter_out':'fatigue_level'})
 
-        smach.StateMachine.add('PLAY', Play(),
-                               transitions={'tired':'REST',
-                                            'stop_play':'MOVE'},
-                               remapping={'play_fatigue_counter_in':'fatigue_level',
-                                          'play_fatigue_counter_out':'fatigue_level',
-                                          'play_person_position_in':'person',
-                                          'play_person_position_out':'person'})
 
 
     # Create and start the introspection server for visualization
@@ -379,3 +397,24 @@ if __name__ == "__main__":
     # Wait for ctrl-c to stop the application
     rospy.spin()
     sis.stop()
+
+
+
+
+"""
+
+smach.StateMachine.add('REST', Rest(),
+                       transitions={'rested':'MOVE'},
+                       remapping={'rest_fatigue_counter_in':'fatigue_level',
+                                  'rest_fatigue_counter_out':'fatigue_level'})
+
+smach.StateMachine.add('PLAY', Play(),
+                       transitions={'tired':'REST',
+                                    'stop_play':'MOVE'},
+                       remapping={'play_fatigue_counter_in':'fatigue_level',
+                                  'play_fatigue_counter_out':'fatigue_level',
+                                  'play_person_position_in':'person',
+                                  'play_person_position_out':'person'})
+
+
+"""
