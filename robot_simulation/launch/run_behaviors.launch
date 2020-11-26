@@ -12,7 +12,7 @@
     <param name="/maximum_time_btw_calls"    value="30" />
 
     <!-- Parameter to define the robot maximul level of efforts before going to sleep -->
-    <param name="/fatigue_threshold" value="1" />
+    <param name="/fatigue_threshold" value="5" />
 
     <!-- Include the launch file for the Gazebo setup -->
     <include file="$(find robot_simulation)/launch/gazebo_world.launch" >
