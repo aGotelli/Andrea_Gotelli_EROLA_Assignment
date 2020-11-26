@@ -44,9 +44,14 @@ import smach
 import smach_ros
 import time
 import random
+import math
 
+# Ros Messages
+from sensor_msgs.msg import CompressedImage
+from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Pose
 from std_msgs.msg import String
+from std_msgs.msg import Float64
 from robot_simulation_messages.srv import MoveTo
 from robot_simulation_messages.msg import PersonCalling
 from robot_simulation_messages.srv import GiveGesture
@@ -54,11 +59,34 @@ from robot_simulation_messages.srv import GiveGesture
 # Brings in the SimpleActionClient
 import actionlib
 import robot_simulation_messages.msg
-#include <actionlib/client/simple_action_client.h>
-#include <actionlib/client/terminal_state.h>
-#include <learning_actionlib/FibonacciAction.h>
+
 
 from deprecated import deprecated
+
+# numpy and scipy
+import numpy as np
+from scipy.ndimage import filters
+
+import imutils
+
+# OpenCV
+import cv2
+
+
+"""
+    TODO
+
+    put the time since detection as parameter
+
+
+
+
+
+
+    problem with documenting the main
+
+"""
+
 
 
 ##
@@ -100,24 +128,30 @@ def reachPosition(pose, info):
 
 # Creates the SimpleActionClient, passing the type of the action
 # (PlanningAction) to the constructor.
-client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
+planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
 
-def reachPosition(pose):
+neck_controller = rospy.Publisher('joint_neck_position_controller/command', Float64, queue_size=10)
+def reachPosition(pose, wait):
     #   Print a log of the given postion
     print("Peaching position: ", pose.position.x , ", ", pose.position.y)
 
-    # Waits until the action server has started up and started
-    # listening for goals.
-    client.wait_for_server()
+    #   Waits until the action server has started up and started
+    #   listening for goals.
+    planning_client.wait_for_server()
 
-    # Creates a goal to send to the action server.
+    #   Creates a goal to send to the action server.
     goal = robot_simulation_messages.msg.PlanningGoal(pose)
 
-    # Sends the goal to the action server.
-    client.send_goal(goal)
+    #   Sends the goal to the action server.
+    planning_client.send_goal(goal)
 
-    # Waits for the server to finish performing the action.
-    client.wait_for_result()
+    #   Waits for the server to finish performing the action.
+    if wait:
+        planning_client.wait_for_result()
+
+
+
+
 
 
 ##
@@ -157,15 +191,27 @@ class Move(smach.State):
     def __init__(self):
 
             smach.State.__init__(self,
-                                 outcomes=['tired'],
+                                 outcomes=['tired','playing'],
                                  input_keys=['move_fatigue_counter_in', 'move_person_position_in'],
                                  output_keys=['move_fatigue_counter_out', 'move_person_position_out'])
             #   Definition of the ROS subscriber to account if the person wish to interact with the robot
             self.person_command = rospy.Subscriber("/PlayWithRobot", PersonCalling, self.commandReceived)
+
+            #   Subscribed to the recorded image
+            self.subscriber = rospy.Subscriber("camera1/image_raw/compressed",
+                                               CompressedImage, self.imageReceived,  queue_size=1)
             #   Definition of the string containing what the person has commanded
-            self.person_willing = "none"
+            self.ball_detected = False
             #   Definition of the person position using geometry_msgs/Pose
             self.person = Pose()
+
+            #   Declare a geometry_msgs/Pose for the random position
+            random_ = Pose()
+            #   Define the random components (x, y) of this random position
+            random_.position.x = random.randint(-width/2, width/2)
+            random_.position.y = random.randint(-height/2, height/2)
+            #   Call the service to reach this position
+            reachPosition(random_, wait=False)
     ##
     #   \brief commandReceived is the callback for the ROS subscriber to the topic /PlayWithRobot
     #   \param command is the command received from the person willing to interact with the robot.
@@ -181,6 +227,46 @@ class Move(smach.State):
         self.person_willing = received_person.command.data
         #   Store the person position
         self.person.position = received_person.position.position
+
+    def imageReceived(self, ros_data):
+        '''Callback function of subscribed topic.
+        Here images get converted and features detected'''
+
+        #### direct conversion to CV2 ####
+        np_arr = np.frombuffer(ros_data.data, np.uint8)
+        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
+
+        greenLower = (50, 50, 20)
+        greenUpper = (70, 255, 255)
+
+        blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
+        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, greenLower, greenUpper)
+        mask = cv2.erode(mask, None, iterations=2)
+        mask = cv2.dilate(mask, None, iterations=2)
+        #cv2.imshow('mask', mask)
+        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                                cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        center = None
+        # only proceed if at least one contour was found
+        if len(cnts) > 0:
+            # find the largest contour in the mask, then use
+            # it to compute the minimum enclosing circle and
+            # centroid
+            c = max(cnts, key=cv2.contourArea)
+            ((x, y), radius) = cv2.minEnclosingCircle(c)
+            M = cv2.moments(c)
+            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+
+            # only proceed if the radius meets a minimum size
+            if radius > 10:
+                self.ball_detected = True
+                planning_client.cancel_all_goals()
+
+        cv2.imshow('window', image_np)
+        cv2.waitKey(2)
+
 
     ##
     #   \brief execute is main member function of the class, containing the intended behavior
@@ -202,13 +288,15 @@ class Move(smach.State):
         while not rospy.is_shutdown():
 
             #   Check if the person has commanded play
-            if self.person_willing == "play" :
+            if self.ball_detected :
                 #   Prepare the userdata to share the person position
                 userdata.move_person_position_out = self.person
                 #   Reset the person willing
-                self.person_willing  = "none"
+                self.ball_detected  = False
+
+                print("Detected!!!")
                 #   Return 'plying' to change the state
-                #return 'playing'
+                return 'playing'
             else :
                 #   Check is the robot is tired
                 if isTired(userdata.move_fatigue_counter_in) :
@@ -218,17 +306,18 @@ class Move(smach.State):
                     return 'tired'
                 else :
                     #   If none of the previous was true, then continue with the Move behavior
-                    #   Declare a geometry_msgs/Pose for the random position
-                    random_ = Pose()
-                    #   Define the random components (x, y) of this random position
-                    random_.position.x = random.randint(-width/2, width/2)
-                    random_.position.y = random.randint(-height/2, height/2)
-                    #   Call the service to reach this position
-                    reachPosition(random_)
-                    #   Increment the level of the robot fatigue
-                    userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
-                    #   Print a log to show the level of fatigue
-                    print('Level of fatigue : ', userdata.move_fatigue_counter_in)
+                    if planning_client.get_result() :
+                        #   Declare a geometry_msgs/Pose for the random position
+                        random_ = Pose()
+                        #   Define the random components (x, y) of this random position
+                        random_.position.x = random.randint(-width/2, width/2)
+                        random_.position.y = random.randint(-height/2, height/2)
+                        #   Call the service to reach this position
+                        reachPosition(random_, wait=False)
+                        #   Increment the level of the robot fatigue
+                        userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
+                        #   Print a log to show the level of fatigue
+                        print('Level of fatigue : ', userdata.move_fatigue_counter_in)
 
 
 
@@ -260,7 +349,7 @@ class Rest(smach.State):
     #
     def execute(self, userdata):
         #   Call the service to reach the position corresponding to the sleeping position
-        reachPosition(sleep_station)
+        reachPosition(sleep_station, wait=True)
         #   Sleep for some time
         print('Sleeping...')
         rospy.sleep(10)
@@ -298,6 +387,22 @@ class Play(smach.State):
                                  input_keys=['play_fatigue_counter_in', 'play_person_position_in'],
                                  output_keys=['play_fatigue_counter_out', 'play_person_position_out'])
             self.wait_for_gesture = rospy.ServiceProxy('/Gesture', GiveGesture)
+
+            #   Subscribed to the recorded image
+            self.subscriber_to_camera_image = rospy.Subscriber("camera1/image_raw/compressed",
+                                               CompressedImage, self.imageReceived,  queue_size=1)
+
+            self.robot_controller = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+
+            self.robot_twist = Twist()
+
+            self.ball_detected = False
+
+            self.ball_reached = False
+
+            self.last_detection = rospy.Time.now()
+
+            print("init done")
     ##
     #   \brief This function performs the behavior for the state
     #   \param userdata Is the structure containing the data shared among states.
@@ -311,38 +416,129 @@ class Play(smach.State):
     #   is equal to the maximum.
     #
     def execute(self, userdata):
-        #   Call the service to reach the position where the person is
-        reachPosition(userdata.play_person_position_in, 'Going to person position')
-        #   Increment the counter for the fatigue as the robot has moved
-        userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
-        #   Print a log showing the current level of fatigue
-        print('Level of fatigue : ', userdata.play_fatigue_counter_in)
+        print("Check Detection")
+        if self.ball_detected :
+            print("Ball Detected")
+            self.last_detection = rospy.Time.now()
 
-        #   Random number of times to play between 1 and 4
-        number_of_iterations = random.randint(1, 4)
-        #   Iterate in the Play behavior
-        for iteration in range(number_of_iterations):
-            #   First check if the robot is tired
+        time_since = self.last_detection.to_sec() - rospy.Time.now().to_sec()
+
+        while time_since <= 5 and not rospy.is_shutdown():
+            if self.ball_detected :
+                #   Reset time of last detection
+                self.last_detection = rospy.Time.now()
+
+            time_since = rospy.Time.now().to_sec() - self.last_detection.to_sec()
+
+            #   Check if the robot is tired
             if isTired(userdata.play_fatigue_counter_in) :
                 #   Print a log to inform about this event
                 print('Robot is tired of playing...')
                 #   Return 'tired' to change the state
                 return 'tired'
 
-            #   Else if the robot is not tired, wait for the gesture
-            rospy.wait_for_service('/Gesture')
-            try:
-                gesture = self.wait_for_gesture()
-                print('obtained', gesture.goal.position.x, gesture.goal.position.y)
-            except rospy.ServiceException as e:
-                print("Service call failed: %s"%e)
+            if self.ball_reached :
+                vel = Twist()
+                self.robot_controller.publish(vel)
+                #   Increment the counter for the fatigue as the robot has moved
+                userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
+                #   Print a log showing the current level of fatigue
+                print('Level of fatigue : ', userdata.play_fatigue_counter_in)
+                self.turn_head()
+            else:
+                self.robot_controller.publish(self.robot_twist)
 
-            #   Call the service to reach the pointed position
-            reachPosition(gesture.goal, 'Going to pointed position')
-            #   Increase the fatigue counter as the robot haa moved
-            userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
-            print('Level of fatigue : ', userdata.play_fatigue_counter_in)
+
+        #   Stop play if the robot does not see ball for 5 sec or more
+        print("Dead time")
         return 'stop_play'
+
+    def turn_head(self):
+        #   Definition of the neck rotation angle
+        neck_angle = Float64()
+        #   Definition of the frequency for publishing command
+        #   to the robot neck
+        neck_controller_rate = rospy.Rate(10)
+        print("Turning the head counterclockwise")
+        #   Turn the head counterclockwise
+        while neck_angle.data < math.pi/4 :
+            neck_angle.data = neck_angle.data +0.01;
+            neck_controller.publish(neck_angle)
+            neck_controller_rate.sleep()
+
+        print("ok")
+        print("Turning the head clockwise")
+        #   Turn the head clockwise
+        while neck_angle.data > -math.pi/4 :
+            neck_angle.data = neck_angle.data -0.01;
+            neck_controller.publish(neck_angle)
+            neck_controller_rate.sleep()
+
+        print("ok")
+        self.ball_detected = False
+        self.ball_reached = False
+
+
+    def imageReceived(self, ros_data):
+        #### direct conversion to CV2 ####
+        np_arr = np.frombuffer(ros_data.data, np.uint8)
+        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
+
+        greenLower = (50, 50, 20)
+        greenUpper = (70, 255, 255)
+
+        blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
+        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, greenLower, greenUpper)
+        mask = cv2.erode(mask, None, iterations=2)
+        mask = cv2.dilate(mask, None, iterations=2)
+        #cv2.imshow('mask', mask)
+        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                                cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        center = None
+
+
+        # only proceed if at least one contour was found
+        if len(cnts) > 0:
+            # find the largest contour in the mask, then use
+            # it to compute the minimum enclosing circle and
+            # centroid
+            c = max(cnts, key=cv2.contourArea)
+            ((x, y), radius) = cv2.minEnclosingCircle(c)
+            M = cv2.moments(c)
+            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+
+            # only proceed if the radius meets a minimum size
+            if radius > 10:
+                # draw the circle and centroid on the frame,
+                # then update the list of tracked points
+                cv2.circle(image_np, (int(x), int(y)), int(radius),
+                           (0, 255, 255), 2)
+                cv2.circle(image_np, center, 5, (0, 0, 255), -1)
+                vel = Twist()
+                vel.angular.z = 0.005*(center[0]-400)
+                vel.linear.x = 0.02*(100-radius)
+                self.robot_twist = vel
+                self.ball_detected = True
+
+                #   Check if the ball is reached
+                if 100-radius >= 0.01:
+                    #   The robot has reached the ball
+                    self.ball_reached = True
+                else:
+                    self.ball_reached = False
+
+            else:
+                self.ball_detected = False
+
+        cv2.imshow('window', image_np)
+        cv2.waitKey(2)
+
+
+
+
+
 
 
 
@@ -354,13 +550,19 @@ class Play(smach.State):
 #   It also retrieves the parameters from the ros parameters server and the user data
 #   exchanged among the state machine states.
 #
-if __name__ == "__main__":
-#    main()
-#def main():
+def main():
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
 
+    #   Sleep for waiting the end of all the Initialization logs
+    rospy.sleep(4)
+
     random.seed()
+
+    global width
+    global height
+    global sleep_station
+    global fatigue_threshold
 
     #   Retrieve the parameter about the world dimensions
     width = rospy.get_param('/world_width', 20)
@@ -372,6 +574,7 @@ if __name__ == "__main__":
 
     fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
 
+    print("fatigue_threshold" , fatigue_threshold)
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['behavior_interface'])
     sm.userdata.fatigue_level = 0
@@ -381,7 +584,7 @@ if __name__ == "__main__":
     with sm:
         # Add states to the container
         smach.StateMachine.add('MOVE', Move(),
-                               transitions={'tired':'REST'},
+                               transitions={'tired':'REST', 'playing':'PLAY'},
                                remapping={'move_fatigue_counter_in':'fatigue_level',
                                           'move_fatigue_counter_out':'fatigue_level',
                                           'move_person_position_out':'person',
@@ -392,7 +595,13 @@ if __name__ == "__main__":
                                remapping={'rest_fatigue_counter_in':'fatigue_level',
                                           'rest_fatigue_counter_out':'fatigue_level'})
 
-
+        smach.StateMachine.add('PLAY', Play(),
+                               transitions={'tired':'REST',
+                                            'stop_play':'MOVE'},
+                               remapping={'play_fatigue_counter_in':'fatigue_level',
+                                          'play_fatigue_counter_out':'fatigue_level',
+                                          'play_person_position_in':'person',
+                                          'play_person_position_out':'person'})
 
     # Create and start the introspection server for visualization
     sis = smach_ros.IntrospectionServer('robot_behavior_state_machine', sm, '/SM_ROOT')
@@ -406,6 +615,8 @@ if __name__ == "__main__":
     sis.stop()
 
 
+if __name__ == "__main__":
+    main()
 
 
 """
@@ -424,4 +635,38 @@ smach.StateMachine.add('PLAY', Play(),
                                   'play_person_position_out':'person'})
 
 
+"""
+"""
+#   Call the service to reach the position where the person is
+reachPosition(userdata.play_person_position_in, 'Going to person position')
+#   Increment the counter for the fatigue as the robot has moved
+userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
+#   Print a log showing the current level of fatigue
+print('Level of fatigue : ', userdata.play_fatigue_counter_in)
+
+#   Random number of times to play between 1 and 4
+number_of_iterations = random.randint(1, 4)
+#   Iterate in the Play behavior
+for iteration in range(number_of_iterations):
+    #   First check if the robot is tired
+    if isTired(userdata.play_fatigue_counter_in) :
+        #   Print a log to inform about this event
+        print('Robot is tired of playing...')
+        #   Return 'tired' to change the state
+        return 'tired'
+
+    #   Else if the robot is not tired, wait for the gesture
+    rospy.wait_for_service('/Gesture')
+    try:
+        gesture = self.wait_for_gesture()
+        print('obtained', gesture.goal.position.x, gesture.goal.position.y)
+    except rospy.ServiceException as e:
+        print("Service call failed: %s"%e)
+
+    #   Call the service to reach the pointed position
+    reachPosition(gesture.goal, 'Going to pointed position')
+    #   Increase the fatigue counter as the robot haa moved
+    userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
+    print('Level of fatigue : ', userdata.play_fatigue_counter_in)
+return 'stop_play'
 """
