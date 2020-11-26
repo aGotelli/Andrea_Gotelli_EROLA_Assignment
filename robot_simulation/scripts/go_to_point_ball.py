@@ -103,9 +103,9 @@ def planning(goal):
     global state_, desired_position_
     global act_s
 
-    desired_position_.x = goal.target_pose.pose.position.x
-    desired_position_.y = goal.target_pose.pose.position.y
-    desired_position_.z = goal.target_pose.pose.position.z
+    desired_position_.x = goal.target_pose.position.x
+    desired_position_.y = goal.target_pose.position.y
+    desired_position_.z = goal.target_pose.position.z
 
     state_ = 0
     rate = rospy.Rate(20)
@@ -147,7 +147,7 @@ def main():
     pubz = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size=1)
     sub_odom = rospy.Subscriber('odom', Odometry, clbk_odom)
     act_s = actionlib.SimpleActionServer(
-        '/reaching_goal', robot_simulation_messages.msg.PlanningAction, planning, auto_start=False)
+        'reaching_goal', robot_simulation_messages.msg.PlanningAction, planning, auto_start=False)
     act_s.start()
 
     rate = rospy.Rate(20)
