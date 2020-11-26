@@ -202,16 +202,7 @@ class Move(smach.State):
                                                CompressedImage, self.imageReceived,  queue_size=1)
             #   Definition of the string containing what the person has commanded
             self.ball_detected = False
-            #   Definition of the person position using geometry_msgs/Pose
-            self.person = Pose()
 
-            #   Declare a geometry_msgs/Pose for the random position
-            random_ = Pose()
-            #   Define the random components (x, y) of this random position
-            random_.position.x = random.randint(-width/2, width/2)
-            random_.position.y = random.randint(-height/2, height/2)
-            #   Call the service to reach this position
-            reachPosition(random_, wait=False)
     ##
     #   \brief commandReceived is the callback for the ROS subscriber to the topic /PlayWithRobot
     #   \param command is the command received from the person willing to interact with the robot.
@@ -262,10 +253,13 @@ class Move(smach.State):
             # only proceed if the radius meets a minimum size
             if radius > 10:
                 self.ball_detected = True
-                planning_client.cancel_all_goals()
+            else:
+                self.ball_detected = False
 
-        cv2.imshow('window', image_np)
-        cv2.waitKey(2)
+
+        cv2.namedWindow('Robot Camera', cv2.WINDOW_NORMAL)
+        cv2.imshow('Robot Camera', image_np)
+        cv2.waitKey(1)
 
 
     ##
@@ -284,11 +278,23 @@ class Move(smach.State):
     #   This member function loops in the previusly described phases untill one of the first two cases appears.
     #
     def execute(self, userdata):
+        #   Definition of the person position using geometry_msgs/Pose
+        self.person = Pose()
+
+        #   Declare a geometry_msgs/Pose for the random position
+        random_ = Pose()
+        #   Define the random components (x, y) of this random position
+        random_.position.x = random.randint(-width/2, width/2)
+        random_.position.y = random.randint(-height/2, height/2)
+        #   Call the service to reach this position
+        reachPosition(random_, wait=False)
         #   Main loop
         while not rospy.is_shutdown():
 
             #   Check if the person has commanded play
             if self.ball_detected :
+                #   Stop the robot right there
+                planning_client.cancel_all_goals()
                 #   Prepare the userdata to share the person position
                 userdata.move_person_position_out = self.person
                 #   Reset the person willing
@@ -298,15 +304,19 @@ class Move(smach.State):
                 #   Return 'plying' to change the state
                 return 'playing'
             else :
-                #   Check is the robot is tired
-                if isTired(userdata.move_fatigue_counter_in) :
-                    #   Print a log to inform about the fact that the robot is tired
-                    print('Robot is tired of moving...')
-                    #   Return 'tired' to change the state
-                    return 'tired'
-                else :
-                    #   If none of the previous was true, then continue with the Move behavior
-                    if planning_client.get_result() :
+                #   If none of the previous was true, then continue with the Move behavior
+                if planning_client.get_result() :
+                    #   Increment the level of the robot fatigue
+                    userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
+                    #   Print a log to show the level of fatigue
+                    print('Level of fatigue : ', userdata.move_fatigue_counter_in)
+                    #   Check is the robot is tired
+                    if isTired(userdata.move_fatigue_counter_in) :
+                        #   Print a log to inform about the fact that the robot is tired
+                        print('Robot is tired of moving...')
+                        #   Return 'tired' to change the state
+                        return 'tired'
+                    else:
                         #   Declare a geometry_msgs/Pose for the random position
                         random_ = Pose()
                         #   Define the random components (x, y) of this random position
@@ -314,10 +324,8 @@ class Move(smach.State):
                         random_.position.y = random.randint(-height/2, height/2)
                         #   Call the service to reach this position
                         reachPosition(random_, wait=False)
-                        #   Increment the level of the robot fatigue
-                        userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
-                        #   Print a log to show the level of fatigue
-                        print('Level of fatigue : ', userdata.move_fatigue_counter_in)
+
+
 
 
 
@@ -475,6 +483,12 @@ class Play(smach.State):
             neck_controller_rate.sleep()
 
         print("ok")
+
+        while neck_angle.data < 0 :
+            neck_angle.data = neck_angle.data +0.01;
+            neck_controller.publish(neck_angle)
+            neck_controller_rate.sleep()
+
         self.ball_detected = False
         self.ball_reached = False
 
@@ -532,8 +546,9 @@ class Play(smach.State):
             else:
                 self.ball_detected = False
 
-        cv2.imshow('window', image_np)
-        cv2.waitKey(2)
+        cv2.namedWindow('Robot Camera', cv2.WINDOW_NORMAL)
+        cv2.imshow('Robot Camera', image_np)
+        cv2.waitKey(1)
 
 
 
