@@ -150,6 +150,65 @@ def reachPosition(pose, wait):
         planning_client.wait_for_result()
 
 
+robot_twist = Twist()
+ball_detected = False
+ball_reached = False
+def receivedImage(ros_data):
+    #### direct conversion to CV2 ####
+    np_arr = np.frombuffer(ros_data.data, np.uint8)
+    image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
+
+    greenLower = (50, 50, 20)
+    greenUpper = (70, 255, 255)
+
+    blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, greenLower, greenUpper)
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+    #cv2.imshow('mask', mask)
+    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    center = None
+
+
+    # only proceed if at least one contour was found
+    if len(cnts) > 0:
+        # find the largest contour in the mask, then use
+        # it to compute the minimum enclosing circle and
+        # centroid
+        c = max(cnts, key=cv2.contourArea)
+        ((x, y), radius) = cv2.minEnclosingCircle(c)
+        M = cv2.moments(c)
+        center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+
+        # only proceed if the radius meets a minimum size
+        if radius > 10:
+            # draw the circle and centroid on the frame,
+            # then update the list of tracked points
+            cv2.circle(image_np, (int(x), int(y)), int(radius),
+                       (0, 255, 255), 2)
+            cv2.circle(image_np, center, 5, (0, 0, 255), -1)
+            vel = Twist()
+            vel.angular.z = 0.005*(center[0]-400)
+            vel.linear.x = 0.02*(100-radius)
+            robot_twist = vel
+            ball_detected = True
+
+            #   Check if the ball is reached
+            if 100-radius >= 0.01:
+                #   The robot has reached the ball
+                ball_reached = True
+            else:
+                ball_reached = False
+
+        else:
+            ball_detected = False
+
+    cv2.namedWindow('Robot Camera', cv2.WINDOW_NORMAL)
+    cv2.imshow('Robot Camera', image_np)
+    cv2.waitKey(1)
 
 
 
@@ -198,10 +257,9 @@ class Move(smach.State):
             self.person_command = rospy.Subscriber("/PlayWithRobot", PersonCalling, self.commandReceived)
 
             #   Subscribed to the recorded image
-            self.subscriber = rospy.Subscriber("camera1/image_raw/compressed",
-                                               CompressedImage, self.imageReceived,  queue_size=1)
+            #self.subscriber = rospy.Subscriber("camera1/image_raw/compressed", CompressedImage, self.imageReceived,  queue_size=1)
             #   Definition of the string containing what the person has commanded
-            self.ball_detected = False
+            #self.ball_detected = False
 
     ##
     #   \brief commandReceived is the callback for the ROS subscriber to the topic /PlayWithRobot
@@ -218,48 +276,6 @@ class Move(smach.State):
         self.person_willing = received_person.command.data
         #   Store the person position
         self.person.position = received_person.position.position
-
-    def imageReceived(self, ros_data):
-        '''Callback function of subscribed topic.
-        Here images get converted and features detected'''
-
-        #### direct conversion to CV2 ####
-        np_arr = np.frombuffer(ros_data.data, np.uint8)
-        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
-
-        greenLower = (50, 50, 20)
-        greenUpper = (70, 255, 255)
-
-        blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
-        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, greenLower, greenUpper)
-        mask = cv2.erode(mask, None, iterations=2)
-        mask = cv2.dilate(mask, None, iterations=2)
-        #cv2.imshow('mask', mask)
-        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-                                cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        center = None
-        # only proceed if at least one contour was found
-        if len(cnts) > 0:
-            # find the largest contour in the mask, then use
-            # it to compute the minimum enclosing circle and
-            # centroid
-            c = max(cnts, key=cv2.contourArea)
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            M = cv2.moments(c)
-            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-
-            # only proceed if the radius meets a minimum size
-            if radius > 10:
-                self.ball_detected = True
-            else:
-                self.ball_detected = False
-
-
-        cv2.namedWindow('Robot Camera', cv2.WINDOW_NORMAL)
-        cv2.imshow('Robot Camera', image_np)
-        cv2.waitKey(1)
 
 
     ##
@@ -278,6 +294,7 @@ class Move(smach.State):
     #   This member function loops in the previusly described phases untill one of the first two cases appears.
     #
     def execute(self, userdata):
+        global ball_detected
         #   Definition of the person position using geometry_msgs/Pose
         self.person = Pose()
 
@@ -292,13 +309,15 @@ class Move(smach.State):
         while not rospy.is_shutdown():
 
             #   Check if the person has commanded play
-            if self.ball_detected :
+            #if self.ball_detected :
+            if ball_detected :
                 #   Stop the robot right there
                 planning_client.cancel_all_goals()
                 #   Prepare the userdata to share the person position
                 userdata.move_person_position_out = self.person
                 #   Reset the person willing
-                self.ball_detected  = False
+                #self.ball_detected  = False
+                ball_detected  = False
 
                 print("Detected!!!")
                 #   Return 'plying' to change the state
@@ -397,18 +416,17 @@ class Play(smach.State):
             self.wait_for_gesture = rospy.ServiceProxy('/Gesture', GiveGesture)
 
             #   Subscribed to the recorded image
-            self.subscriber_to_camera_image = rospy.Subscriber("camera1/image_raw/compressed",
-                                               CompressedImage, self.imageReceived,  queue_size=1)
+            #self.subscriber_to_camera_image = rospy.Subscriber("camera1/image_raw/compressed", CompressedImage, self.imageReceived,  queue_size=1)
 
             self.robot_controller = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
-            self.robot_twist = Twist()
+            #self.robot_twist = Twist()
 
-            self.ball_detected = False
+            #self.ball_detected = False
 
-            self.ball_reached = False
+            #self.ball_reached = False
 
-            self.last_detection = rospy.Time.now()
+            #self.last_detection = rospy.Time.now()
 
             print("init done")
     ##
@@ -424,15 +442,20 @@ class Play(smach.State):
     #   is equal to the maximum.
     #
     def execute(self, userdata):
+        global ball_detected
+        global ball_reached
+        global robot_twist
         print("Check Detection")
-        if self.ball_detected :
+        #if self.ball_detected :
+        if ball_detected :
             print("Ball Detected")
             self.last_detection = rospy.Time.now()
 
         time_since = self.last_detection.to_sec() - rospy.Time.now().to_sec()
 
         while time_since <= 5 and not rospy.is_shutdown():
-            if self.ball_detected :
+            #if self.ball_detected :
+            if ball_detected :
                 #   Reset time of last detection
                 self.last_detection = rospy.Time.now()
 
@@ -445,7 +468,8 @@ class Play(smach.State):
                 #   Return 'tired' to change the state
                 return 'tired'
 
-            if self.ball_reached :
+            #if self.ball_reached :
+            if ball_reached :
                 vel = Twist()
                 self.robot_controller.publish(vel)
                 #   Increment the counter for the fatigue as the robot has moved
@@ -454,7 +478,8 @@ class Play(smach.State):
                 print('Level of fatigue : ', userdata.play_fatigue_counter_in)
                 self.turn_head()
             else:
-                self.robot_controller.publish(self.robot_twist)
+                #self.robot_controller.publish(self.robot_twist)
+                self.robot_controller.publish(robot_twist)
 
 
         #   Stop play if the robot does not see ball for 5 sec or more
@@ -489,70 +514,10 @@ class Play(smach.State):
             neck_controller.publish(neck_angle)
             neck_controller_rate.sleep()
 
-        self.ball_detected = False
-        self.ball_reached = False
-
-
-    def imageReceived(self, ros_data):
-        #### direct conversion to CV2 ####
-        np_arr = np.frombuffer(ros_data.data, np.uint8)
-        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
-
-        greenLower = (50, 50, 20)
-        greenUpper = (70, 255, 255)
-
-        blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
-        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, greenLower, greenUpper)
-        mask = cv2.erode(mask, None, iterations=2)
-        mask = cv2.dilate(mask, None, iterations=2)
-        #cv2.imshow('mask', mask)
-        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-                                cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        center = None
-
-
-        # only proceed if at least one contour was found
-        if len(cnts) > 0:
-            # find the largest contour in the mask, then use
-            # it to compute the minimum enclosing circle and
-            # centroid
-            c = max(cnts, key=cv2.contourArea)
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            M = cv2.moments(c)
-            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-
-            # only proceed if the radius meets a minimum size
-            if radius > 10:
-                # draw the circle and centroid on the frame,
-                # then update the list of tracked points
-                cv2.circle(image_np, (int(x), int(y)), int(radius),
-                           (0, 255, 255), 2)
-                cv2.circle(image_np, center, 5, (0, 0, 255), -1)
-                vel = Twist()
-                vel.angular.z = 0.005*(center[0]-400)
-                vel.linear.x = 0.02*(100-radius)
-                self.robot_twist = vel
-                self.ball_detected = True
-
-                #   Check if the ball is reached
-                if 100-radius >= 0.01:
-                    #   The robot has reached the ball
-                    self.ball_reached = True
-                else:
-                    self.ball_reached = False
-
-            else:
-                self.ball_detected = False
-
-        cv2.namedWindow('Robot Camera', cv2.WINDOW_NORMAL)
-        cv2.imshow('Robot Camera', image_np)
-        cv2.waitKey(1)
-
-
-
-
+        #self.ball_detected = False
+        #self.ball_reached = False
+        ball_detected = False
+        ball_reached = False
 
 
 
@@ -594,6 +559,9 @@ def main():
     sm = smach.StateMachine(outcomes=['behavior_interface'])
     sm.userdata.fatigue_level = 0
     sm.userdata.person = Pose()
+
+    image_subscriber = rospy.Subscriber("camera1/image_raw/compressed",
+                                                   CompressedImage, receivedImage,  queue_size=1)
 
     # Open the container
     with sm:
