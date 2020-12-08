@@ -134,10 +134,11 @@ def reachPosition(pose, info):
 # Creates the SimpleActionClient, passing the type of the action
 # (PlanningAction) to the constructor.
 planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
-def reachPosition(pose, wait):
+def reachPosition(pose, wait=False, verbose=False):
     global planning_client
-    #   Print a log of the given postion
-    print("Peaching position: ", pose.position.x , ", ", pose.position.y)
+    if verbose :
+        #   Print a log of the given postion
+        print("Robot is reaching position: ", pose.position.x , ", ", pose.position.y)
     #   Waits until the action server has started up and started
     #   listening for goals.
     planning_client.wait_for_server()
@@ -166,17 +167,13 @@ def imageReceived(ros_data):
     global time_since
     global last_detection
     global sleepy_robot
-
     time_since = rospy.Time.now().to_sec() - last_detection
-
     if not sleepy_robot :
         #### direct conversion to CV2 ####
         np_arr = np.frombuffer(ros_data.data, np.uint8)
         image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
-
         greenLower = (50, 50, 20)
         greenUpper = (70, 255, 255)
-
         blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, greenLower, greenUpper)
@@ -187,8 +184,6 @@ def imageReceived(ros_data):
                                 cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
         center = None
-
-
         # only proceed if at least one contour was found
         if len(cnts) > 0:
             # find the largest contour in the mask, then use
@@ -198,7 +193,6 @@ def imageReceived(ros_data):
             ((x, y), radius) = cv2.minEnclosingCircle(c)
             M = cv2.moments(c)
             center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-
             # only proceed if the radius meets a minimum size
             if radius > 10:
                 # draw the circle and centroid on the frame,
@@ -210,22 +204,23 @@ def imageReceived(ros_data):
                 robot_twist.angular.z = 0.005*(center[0]-400)
                 robot_twist.linear.x = 0.02*(110-radius)
                 ball_detected = True
+                print("Detected from callback")
                 #   Reset time of last detection
                 last_detection = rospy.Time.now().to_sec()
                 #   Stop the robot right there
-                planning_client.cancel_all_goals()
+                #planning_client.cancel_all_goals()
                 #   Check if the ball is reached
                 if 100-radius <= 0:
-                    print("radius : ", radius )
                     #   The robot has reached the ball
                     ball_reached = True
                     robot_twist = Twist()
                 else:
                     ball_reached = False
-            else:
-                ball_detected = False
-                robot_twist = Twist()
-
+        else:
+            ball_detected = False
+            robot_twist = Twist()
+    else :
+        print("Sleepy Robot")
 
 neck_controller = rospy.Publisher('joint_neck_position_controller/command', Float64, queue_size=1)
 def turn_head():
@@ -267,7 +262,9 @@ def turn_head():
 #    eccessible for the user.
 #
 def isTired(fatigue_level):
+    global sleepy_robot
     if fatigue_level >= fatigue_threshold:
+        sleepy_robot = True
         return True
     else :
         return False
@@ -324,11 +321,14 @@ class Move(smach.State):
         random_.position.x = random.randint(-width/2, width/2)
         random_.position.y = random.randint(-height/2, height/2)
         #   Call the service to reach this position
-        reachPosition(random_, wait=False)
+        reachPosition(random_, verbose=True)
         #   Main loop
         while not rospy.is_shutdown():
             #   Check if the person has commanded play
             if ball_detected :
+                print("Ball detected stopping the robot!")
+                #   Stop the robot right there
+                planning_client.cancel_all_goals()
                 #   Return 'plying' to change the state
                 ball_detected = False
                 return 'playing'
@@ -353,7 +353,7 @@ class Move(smach.State):
                         random_.position.x = random.randint(-width/2, width/2)
                         random_.position.y = random.randint(-height/2, height/2)
                         #   Call the service to reach this position
-                        reachPosition(random_, wait=False)
+                        reachPosition(random_, verbose=True)
 
 
 
@@ -386,7 +386,7 @@ class Rest(smach.State):
     #   to let the robot to move and performs his behaviors.
     #
     def execute(self, userdata):
-        global robot_is_sleeping
+        global sleepy_robot
         sleepy_robot = True
         #   Call the service to reach the position corresponding to the sleeping position
         reachPosition(sleep_station, wait=True)
@@ -471,7 +471,7 @@ class Play(smach.State):
                 #   If not tired turn the head and begin new iteration
                 turn_head()
         #   Stop play if the robot does not see ball for 5 sec or more
-        print("Dead time")
+        print("Dead time : ", int(time_since), " [s]")
         ball_reached = False
         ball_detected = False
         return 'stop_play'
