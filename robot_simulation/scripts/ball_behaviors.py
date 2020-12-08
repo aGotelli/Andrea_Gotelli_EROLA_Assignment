@@ -80,10 +80,11 @@ number_of_movements = 0
 # Creates the SimpleActionClient, passing the type of the action
 # (PlanningAction) to the constructor.
 planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
-def reachPosition(pose, wait):
+def reachPosition(pose, wait=False, verbose=False):
     global planning_client
-    #   Print a log of the given postion
-    print("Peaching position: ", pose.position.x , ", ", pose.position.y)
+    if verbose :
+        #   Print a log of the given postion
+        print("Ball is reaching position: ", pose.position.x , ", ", pose.position.y)
     #   Waits until the action server has started up and started
     #   listening for goals.
     planning_client.wait_for_server()
