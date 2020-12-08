@@ -74,6 +74,7 @@
   	<node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
                 args="-urdf -model ball -param ball_description -x -7 -y 6 -z -1"/>
         <node name="position_server" pkg="robot_simulation" type="go_to_point_ball.py" output="screen" />
+        <node name=
   </group>
 
 </launch>

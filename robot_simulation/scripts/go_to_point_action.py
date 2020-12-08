@@ -11,6 +11,7 @@ import actionlib.msg
 import robot_simulation_messages.msg
 
 
+
 # robot state variables
 position_ = Point()
 pose_ = Pose()
