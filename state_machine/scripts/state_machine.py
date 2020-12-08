@@ -85,6 +85,11 @@ import cv2
 
     problem with documenting the main
 
+
+
+    PROBLEMS
+        Se la palla passa sopra al robot o veramente a fianco per il robot è come se la avesse raggiunta
+
 """
 
 
@@ -129,31 +134,39 @@ def reachPosition(pose, info):
 # Creates the SimpleActionClient, passing the type of the action
 # (PlanningAction) to the constructor.
 planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
-
-neck_controller = rospy.Publisher('joint_neck_position_controller/command', Float64, queue_size=10)
 def reachPosition(pose, wait):
+    global planning_client
     #   Print a log of the given postion
     print("Peaching position: ", pose.position.x , ", ", pose.position.y)
-
     #   Waits until the action server has started up and started
     #   listening for goals.
     planning_client.wait_for_server()
-
     #   Creates a goal to send to the action server.
     goal = robot_simulation_messages.msg.PlanningGoal(pose)
-
     #   Sends the goal to the action server.
     planning_client.send_goal(goal)
-
     #   Waits for the server to finish performing the action.
     if wait:
         planning_client.wait_for_result()
 
 
-robot_twist = Twist()
+
+
+
 ball_detected = False
 ball_reached = False
-def receivedImage(ros_data):
+robot_twist = Twist()
+time_since = 0.0
+last_detection = 0.0
+def imageReceived(ros_data):
+    global planning_client
+    global ball_detected
+    global ball_reached
+    global robot_twist
+    global time_since
+    global last_detection
+
+    time_since = rospy.Time.now().to_sec() - last_detection
     #### direct conversion to CV2 ####
     np_arr = np.frombuffer(ros_data.data, np.uint8)
     image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
@@ -190,26 +203,55 @@ def receivedImage(ros_data):
             cv2.circle(image_np, (int(x), int(y)), int(radius),
                        (0, 255, 255), 2)
             cv2.circle(image_np, center, 5, (0, 0, 255), -1)
-            vel = Twist()
-            vel.angular.z = 0.005*(center[0]-400)
-            vel.linear.x = 0.02*(100-radius)
-            robot_twist = vel
+            robot_twist = Twist()
+            robot_twist.angular.z = 0.005*(center[0]-400)
+            robot_twist.linear.x = 0.02*(110-radius)
             ball_detected = True
-
+            #   Reset time of last detection
+            last_detection = rospy.Time.now().to_sec()
+            #   Stop the robot right there
+            planning_client.cancel_all_goals()
             #   Check if the ball is reached
-            if 100-radius >= 0.01:
+            if 100-radius <= 0:
+                print("radius : ", radius )
                 #   The robot has reached the ball
                 ball_reached = True
+                robot_twist = Twist()
             else:
                 ball_reached = False
-
         else:
             ball_detected = False
+            robot_twist = Twist()
 
-    cv2.namedWindow('Robot Camera', cv2.WINDOW_NORMAL)
-    cv2.imshow('Robot Camera', image_np)
-    cv2.waitKey(1)
 
+neck_controller = rospy.Publisher('joint_neck_position_controller/command', Float64, queue_size=1)
+def turn_head():
+    global neck_controller
+    #   Definition of the neck rotation angle
+    neck_angle = Float64()
+    #   Definition of the frequency for publishing command
+    #   to the robot neck
+    neck_controller_rate = rospy.Rate(10)
+    print("Turning the head counterclockwise")
+    #   Turn the head counterclockwise
+    while neck_angle.data < math.pi/4 :
+        neck_angle.data = neck_angle.data +0.01;
+        neck_controller.publish(neck_angle)
+        neck_controller_rate.sleep()
+    print("Turning the head clockwise")
+    #   Turn the head clockwise
+    while neck_angle.data > -math.pi/4 :
+        neck_angle.data = neck_angle.data -0.01;
+        neck_controller.publish(neck_angle)
+        neck_controller_rate.sleep()
+    print("Resetting the head straight")
+    #   Turn the head straight
+    while neck_angle.data < 0 :
+        neck_angle.data = neck_angle.data +0.01;
+        neck_controller.publish(neck_angle)
+        neck_controller_rate.sleep()
+    ball_detected = False
+    ball_reached = False
 
 
 
@@ -253,29 +295,6 @@ class Move(smach.State):
                                  outcomes=['tired','playing'],
                                  input_keys=['move_fatigue_counter_in', 'move_person_position_in'],
                                  output_keys=['move_fatigue_counter_out', 'move_person_position_out'])
-            #   Definition of the ROS subscriber to account if the person wish to interact with the robot
-            self.person_command = rospy.Subscriber("/PlayWithRobot", PersonCalling, self.commandReceived)
-
-            #   Subscribed to the recorded image
-            #self.subscriber = rospy.Subscriber("camera1/image_raw/compressed", CompressedImage, self.imageReceived,  queue_size=1)
-            #   Definition of the string containing what the person has commanded
-            #self.ball_detected = False
-
-    ##
-    #   \brief commandReceived is the callback for the ROS subscriber to the topic /PlayWithRobot
-    #   \param command is the command received from the person willing to interact with the robot.
-    #
-    #   This member function checks the type of command that is received (only play is awailable in
-    #   this context but other commands could be configurated). After it stores the position of the person
-    #   willing to interact with the robot and it prints a log informing about what was received.
-    #
-    def commandReceived(self, received_person):
-         #   Print a information about the received message
-        print('Received command : ', received_person.command.data, ' from a person in : ', received_person.position.position.x, ', ' , received_person.position.position.y)
-        #   Store the information about the received command
-        self.person_willing = received_person.command.data
-        #   Store the person position
-        self.person.position = received_person.position.position
 
 
     ##
@@ -295,9 +314,7 @@ class Move(smach.State):
     #
     def execute(self, userdata):
         global ball_detected
-        #   Definition of the person position using geometry_msgs/Pose
-        self.person = Pose()
-
+        global planning_client
         #   Declare a geometry_msgs/Pose for the random position
         random_ = Pose()
         #   Define the random components (x, y) of this random position
@@ -307,24 +324,15 @@ class Move(smach.State):
         reachPosition(random_, wait=False)
         #   Main loop
         while not rospy.is_shutdown():
-
             #   Check if the person has commanded play
-            #if self.ball_detected :
             if ball_detected :
-                #   Stop the robot right there
-                planning_client.cancel_all_goals()
-                #   Prepare the userdata to share the person position
-                userdata.move_person_position_out = self.person
-                #   Reset the person willing
-                #self.ball_detected  = False
-                ball_detected  = False
-
-                print("Detected!!!")
                 #   Return 'plying' to change the state
+                ball_detected = False
                 return 'playing'
             else :
                 #   If none of the previous was true, then continue with the Move behavior
                 if planning_client.get_result() :
+                    print("Continuing to move")
                     #   Increment the level of the robot fatigue
                     userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
                     #   Print a log to show the level of fatigue
@@ -413,22 +421,12 @@ class Play(smach.State):
                                  outcomes=['tired','stop_play'],
                                  input_keys=['play_fatigue_counter_in', 'play_person_position_in'],
                                  output_keys=['play_fatigue_counter_out', 'play_person_position_out'])
-            self.wait_for_gesture = rospy.ServiceProxy('/Gesture', GiveGesture)
-
-            #   Subscribed to the recorded image
-            #self.subscriber_to_camera_image = rospy.Subscriber("camera1/image_raw/compressed", CompressedImage, self.imageReceived,  queue_size=1)
 
             self.robot_controller = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+            self.last_detection = rospy.Time.now()
 
-            #self.robot_twist = Twist()
 
-            #self.ball_detected = False
 
-            #self.ball_reached = False
-
-            #self.last_detection = rospy.Time.now()
-
-            print("init done")
     ##
     #   \brief This function performs the behavior for the state
     #   \param userdata Is the structure containing the data shared among states.
@@ -445,80 +443,32 @@ class Play(smach.State):
         global ball_detected
         global ball_reached
         global robot_twist
-        print("Check Detection")
-        #if self.ball_detected :
-        if ball_detected :
-            print("Ball Detected")
-            self.last_detection = rospy.Time.now()
-
-        time_since = self.last_detection.to_sec() - rospy.Time.now().to_sec()
+        global time_since
 
         while time_since <= 5 and not rospy.is_shutdown():
-            #if self.ball_detected :
-            if ball_detected :
-                #   Reset time of last detection
-                self.last_detection = rospy.Time.now()
-
-            time_since = rospy.Time.now().to_sec() - self.last_detection.to_sec()
-
-            #   Check if the robot is tired
-            if isTired(userdata.play_fatigue_counter_in) :
-                #   Print a log to inform about this event
-                print('Robot is tired of playing...')
-                #   Return 'tired' to change the state
-                return 'tired'
-
-            #if self.ball_reached :
+            self.robot_controller.publish(robot_twist)
             if ball_reached :
-                vel = Twist()
-                self.robot_controller.publish(vel)
+                print("Ball Reached")
                 #   Increment the counter for the fatigue as the robot has moved
                 userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
-                #   Print a log showing the current level of fatigue
                 print('Level of fatigue : ', userdata.play_fatigue_counter_in)
-                self.turn_head()
-            else:
-                #self.robot_controller.publish(self.robot_twist)
-                self.robot_controller.publish(robot_twist)
-
-
+                #   Check if the robot is tired
+                if isTired(userdata.play_fatigue_counter_in) :
+                    print('Robot is tired of playing...')
+                    ball_reached = False
+                    ball_detected = False
+                    #   Return 'tired' to change the state
+                    return 'tired'
+                #   Make sure the robot stays still
+                null_twist = Twist()
+                self.robot_controller.publish(null_twist)
+                #   If not tired turn the head and begin new iteration
+                turn_head()
         #   Stop play if the robot does not see ball for 5 sec or more
         print("Dead time")
-        return 'stop_play'
-
-    def turn_head(self):
-        #   Definition of the neck rotation angle
-        neck_angle = Float64()
-        #   Definition of the frequency for publishing command
-        #   to the robot neck
-        neck_controller_rate = rospy.Rate(10)
-        print("Turning the head counterclockwise")
-        #   Turn the head counterclockwise
-        while neck_angle.data < math.pi/4 :
-            neck_angle.data = neck_angle.data +0.01;
-            neck_controller.publish(neck_angle)
-            neck_controller_rate.sleep()
-
-        print("ok")
-        print("Turning the head clockwise")
-        #   Turn the head clockwise
-        while neck_angle.data > -math.pi/4 :
-            neck_angle.data = neck_angle.data -0.01;
-            neck_controller.publish(neck_angle)
-            neck_controller_rate.sleep()
-
-        print("ok")
-
-        while neck_angle.data < 0 :
-            neck_angle.data = neck_angle.data +0.01;
-            neck_controller.publish(neck_angle)
-            neck_controller_rate.sleep()
-
-        #self.ball_detected = False
-        #self.ball_reached = False
-        ball_detected = False
         ball_reached = False
-
+        ball_detected = False
+        return 'stop_play'
 
 
 
@@ -543,6 +493,13 @@ def main():
     global height
     global sleep_station
     global fatigue_threshold
+    global last_detection
+
+    last_detection = rospy.Time.now().to_sec()
+
+    #   Subscribed to the recorded image
+    subscriber = rospy.Subscriber("camera1/image_raw/compressed",
+                                       CompressedImage, imageReceived,  queue_size=1)
 
     #   Retrieve the parameter about the world dimensions
     width = rospy.get_param('/world_width', 20)
@@ -559,9 +516,6 @@ def main():
     sm = smach.StateMachine(outcomes=['behavior_interface'])
     sm.userdata.fatigue_level = 0
     sm.userdata.person = Pose()
-
-    image_subscriber = rospy.Subscriber("camera1/image_raw/compressed",
-                                                   CompressedImage, receivedImage,  queue_size=1)
 
     # Open the container
     with sm:
