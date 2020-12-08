@@ -95,10 +95,10 @@ def reachPosition(pose, wait):
     if wait:
         planning_client.wait_for_result()
 
-def waitForRandTime(min=5, max=10):
+def waitForRandTime(min=10, max=20):
     print("min : ", min, " max : ", max)
-    time_to_wait = rospy.Rate( random.randint(min, max) )
-    time_to_wait.sleep()
+    rospy.sleep( random.randint(min, max) )
+
 
 ##
 #   \class Move
@@ -121,19 +121,18 @@ class Move(smach.State):
     #   Moreover, it initializes the subscriber necessary to receive a command from the person.
     #
     def __init__(self):
-
             smach.State.__init__(self, outcomes=['hide'])
 
 
     ##
     #   \brief execute is main member function of the class, containing the intended behavior
-    #   \param userdata Is the structure containing the data shared among states.
     #   \return a string consisting of the state outcome
     #
     #
     #
     def execute(self, userdata):
         global number_of_movements
+        print("Number of movements : ", number_of_movements)
         while not rospy.is_shutdown():
             for index in range(number_of_movements):
                 #   Declare a geometry_msgs/Pose for the random position
@@ -165,8 +164,7 @@ class Rest(smach.State):
     ##
     #   \brief The __init__ constructor initializes the state outcome and input output keys
     def __init__(self):
-            smach.State.__init__(self,
-                                 outcomes=['move'])
+            smach.State.__init__(self, outcomes=['move'])
     ##
     #   \brief  The member function executing the state behavior
     #   \param userdata Is the structure containing the data shared among states.
@@ -186,7 +184,7 @@ class Rest(smach.State):
         #   Call the service to reach this position
         reachPosition(random_, wait=True)
         #   Wait some time before showing ball again
-        waitForRandTime():
+        waitForRandTime()
         return 'move'
 
 
@@ -199,11 +197,15 @@ class Rest(smach.State):
 #   exchanged among the state machine states.
 #
 def main():
+    global width
+    global height
+    global number_of_movements
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
 
     #   Sleep for waiting the end of all the Initialization logs
-    waitForRandTime(min=15, max=25):
+    waitForRandTime(15, 25)
+    print("Starting to move the ball")
     random.seed()
 
     #   Retrieve the parameter about the world dimensions
