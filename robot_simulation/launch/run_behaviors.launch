@@ -1,7 +1,7 @@
 <launch>
     <!-- Parameters defining the discretized world width and height -->
-    <param name="/world_width"     value="8" />
-    <param name="/world_height"    value="8" />
+    <param name="/world_width"     value="16" />
+    <param name="/world_height"    value="16" />
 
     <!-- Parameters to define the sleeping position -->
     <param name="/sleep_x_coord" value="-8" />
