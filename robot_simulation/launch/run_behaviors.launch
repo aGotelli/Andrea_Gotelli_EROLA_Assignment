@@ -14,6 +14,9 @@
     <!-- Parameter to define the robot maximul level of efforts before going to sleep -->
     <param name="/fatigue_threshold" value="5" />
 
+    <!-- Parameter to define the robot maximul level of efforts before going to sleep -->
+    <param name="/maximum_dead_time" value="5" />
+
     <!-- Include the launch file for the Gazebo setup -->
     <include file="$(find robot_simulation)/launch/gazebo_world.launch" >
     </include>
