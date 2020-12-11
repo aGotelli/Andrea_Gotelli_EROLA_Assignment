@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(robot_simulation)
+project(robot_simulation_state_machines)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -8,24 +8,24 @@ project(robot_simulation)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
   rospy
-  geometry_msgs
-  sensor_msgs
+  roslib
+  smach_ros
   std_msgs
   nav_msgs
+  sensor_msgs
+  geometry_msgs
   robot_simulation_messages
-  smach_ros
-  cv_bridge
-  image_transport
-  tf
+  robot_simulation_description
   actionlib_msgs
   actionlib
+  cv_bridge
+  image_transport
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
+find_package (OpenCV REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -114,8 +114,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES robot_simulation
-#  CATKIN_DEPENDS roscpp
+#  LIBRARIES state_machine
+#  CATKIN_DEPENDS rospy
 #  DEPENDS system_lib
 )
 
@@ -132,7 +132,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/robot_simulation.cpp
+#   src/${PROJECT_NAME}/state_machine.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -143,7 +143,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/robot_simulation_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/state_machine_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -160,23 +160,6 @@ include_directories(
 #   ${catkin_LIBRARIES}
 # )
 
-add_executable(${PROJECT_NAME}_move_service_provider src/move_service_provider.cpp)
-target_link_libraries(${PROJECT_NAME}_move_service_provider
-   ${catkin_LIBRARIES}
- )
-
-
-add_executable(${PROJECT_NAME}_person src/person.cpp)
-target_link_libraries(${PROJECT_NAME}_person
-   ${catkin_LIBRARIES}
- )
-
-add_executable(${PROJECT_NAME}_ball_behavior src/ball_behavior.cpp)
-target_link_libraries(${PROJECT_NAME}_ball_behavior
-   ${catkin_LIBRARIES}
- )
-
-
 #############
 ## Install ##
 #############
@@ -186,11 +169,10 @@ target_link_libraries(${PROJECT_NAME}_ball_behavior
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-catkin_install_python(PROGRAMS
-  scripts/move_robot.py scripts/move_ball.py scripts/ball_behaviors.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ catkin_install_python(PROGRAMS
+   scripts/robot_behaviors.py scripts/move_robot.py scripts/move_ball.py scripts/ball_behaviors.py
+   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
-
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
@@ -225,7 +207,7 @@ catkin_install_python(PROGRAMS
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_robot_simulation.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_state_machine.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

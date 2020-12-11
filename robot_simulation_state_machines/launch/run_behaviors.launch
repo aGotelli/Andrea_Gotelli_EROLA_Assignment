@@ -18,18 +18,8 @@
     <param name="/maximum_dead_time" value="5" />
 
     <!-- Include the launch file for the Gazebo setup -->
-    <include file="$(find robot_simulation)/launch/gazebo_world.launch" >
+    <include file="$(find robot_simulation_state_machines)/launch/gazebo_world.launch" >
     </include>
-
-    <!-- Launch the node responsible of providing the service for the movement -->
-    <node pkg="robot_simulation" type="robot_simulation_move_service_provider" name="move_service_provider" output="screen"/>
-
-    <!-- Launch the node simulating the person -->
-    <node pkg="robot_simulation" type="robot_simulation_person" name="person"  output="screen"/>
-
-
-
-
 
 
 </launch>

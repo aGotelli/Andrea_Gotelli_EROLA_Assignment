@@ -52,9 +52,6 @@ from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Pose
 from std_msgs.msg import String
 from std_msgs.msg import Float64
-from robot_simulation_messages.srv import MoveTo
-from robot_simulation_messages.msg import PersonCalling
-from robot_simulation_messages.srv import GiveGesture
 
 # Brings in the SimpleActionClient
 import actionlib
@@ -184,12 +181,6 @@ class Move(smach.State):
                 reachPosition(random_, wait=True)
             return 'hide'
 
-
-
-
-
-
-
 ##
 #   \class Hide
 #   \brief This class defines the state of the state machine corresponding to the robot sleeping.
@@ -250,7 +241,7 @@ def main():
     rospy.init_node('robot_behavior_state_machine')
 
     #   Sleep for waiting the end of all the Initialization logs
-    waitForRandTime(15, 25)
+    waitForRandTime(30, 40)
     print("Starting to move the ball")
     random.seed()
 
