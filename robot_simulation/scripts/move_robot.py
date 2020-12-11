@@ -32,7 +32,7 @@ lb_a = -0.5
 ub_d = 0.6
 
 # publisher
-pub = None
+robot_velocity_command = None
 
 # action_server
 act_s = None
@@ -72,7 +72,7 @@ def normalize_angle(angle):
 
 
 def fix_yaw(des_pos):
-    global yaw_, pub, yaw_precision_2_, state_
+    global yaw_, robot_velocity_command, yaw_precision_2_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
     err_yaw = normalize_angle(desired_yaw - yaw_)
     #rospy.loginfo("Yaw error: %s", err_yaw)
@@ -85,7 +85,7 @@ def fix_yaw(des_pos):
         elif twist_msg.angular.z < lb_a:
             twist_msg.angular.z = lb_a
 
-    pub.publish(twist_msg)
+    robot_velocity_command.publish(twist_msg)
 
     # state change conditions
     if math.fabs(err_yaw) <= yaw_precision_2_:
@@ -94,7 +94,7 @@ def fix_yaw(des_pos):
 
 
 def go_straight_ahead(des_pos):
-    global yaw_, pub, yaw_precision_, state_
+    global yaw_, robot_velocity_command, yaw_precision_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
     err_pos = math.sqrt(pow(des_pos.y - position_.y, 2) +
                         pow(des_pos.x - position_.x, 2))
@@ -108,7 +108,7 @@ def go_straight_ahead(des_pos):
             twist_msg.linear.x = ub_d
 
         twist_msg.angular.z = kp_a*err_yaw
-        pub.publish(twist_msg)
+        robot_velocity_command.publish(twist_msg)
     else:
         #print ('Position error: [%s]' % err_pos)
         change_state(2)
@@ -123,7 +123,7 @@ def done():
     twist_msg = Twist()
     twist_msg.linear.x = 0
     twist_msg.angular.z = 0
-    pub.publish(twist_msg)
+    robot_velocity_command.publish(twist_msg)
 
 
 def planning(goal):
@@ -173,9 +173,9 @@ def planning(goal):
 
 
 def main():
-    global pub, active_, act_s
+    global robot_velocity_command, active_, act_s
     rospy.init_node('go_to_point')
-    pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+    robot_velocity_command = rospy.Publisher('cmd_vel', Twist, queue_size=1)
     sub_odom = rospy.Subscriber('odom', Odometry, clbk_odom)
     act_s = actionlib.SimpleActionServer(
         'reaching_goal', robot_simulation_messages.msg.PlanningAction, planning, auto_start=False)
