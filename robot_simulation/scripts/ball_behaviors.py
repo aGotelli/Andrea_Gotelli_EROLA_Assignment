@@ -64,6 +64,8 @@ import robot_simulation_messages.msg
 # numpy and scipy
 import numpy as np
 
+#from reach_goal import reachPosition
+
 
 
 ##
@@ -83,6 +85,7 @@ height = 0
 #
 #   It is a parameter that the user may change with the use of the correct ROS parameter.
 number_of_movements = 0
+
 
 ##
 #   \brief Creates the SimpleActionClient, passing the type of the action (PlanningAction) to the constructor.
