@@ -74,24 +74,12 @@ import cv2
 
 
 """
-    TODO
-
-    put the time since detection as parameter
-
-
-
-
-
-
-    problem with documenting the main
-
-
 
     PROBLEMS
         Se la palla passa sopra al robot o veramente a fianco per il robot è come se la avesse raggiunta
         limita velocita troppo grandi quando appal e lontana
 
-        quando trova la palla di frnt ferma il fatigue counter non aumenta
+        quando trova la palla di frnt ferma lui sta li e il counter aumenta
 
         not able to augment the counter even with long distance covered if the motion is not completed
 """
@@ -344,15 +332,12 @@ class Rest(smach.State):
     #   to let the robot to move and performs his behaviors.
     #
     def execute(self, userdata):
-        #global sleepy_robot
-        #sleepy_robot = True
         #   Call the service to reach the position corresponding to the sleeping position
         reachPosition(sleep_station, wait=True)
         #   Sleep for some time
         print('Sleeping...')
         rospy.sleep(10)
         print('Woke up!')
-        #sleepy_robot = False
         #   Reset the fatigue counter afther the robot is well rested
         userdata.rest_fatigue_counter_out = 0
         #   Return 'rested' to change the state
@@ -414,17 +399,20 @@ class FollowBall(smach.State):
         #   Due to the fact that the output key is now the output of the substate machine
         #   it is not possible anymore to simply use the input and output key, but I need
         #   to declare and use a local variable to account the fatigue increasement.
-        self.fatigue_level = userdata.follow_ball_fatigue_counter_in
+        #self.fatigue_level = userdata.follow_ball_fatigue_counter_in
 
         while time_since <= maximum_dead_time and not rospy.is_shutdown():
             self.robot_controller.publish(robot_twist)
             if ball_reached :
                 print("Ball Reached")
                 #   Increment the counter for the fatigue as the robot has moved
-                self.fatigue_level = self.fatigue_level + 1
-                print('Level of fatigue : ', self.fatigue_level)
+                #self.fatigue_level = self.fatigue_level + 1
+                #print('Level of fatigue : ', self.fatigue_level)
+                userdata.follow_ball_fatigue_counter_out = userdata.follow_ball_fatigue_counter_in + 1
+                print('Level of fatigue : ', userdata.follow_ball_fatigue_counter_in + 1)
                 #   Check if the robot is tired
-                if isTired( self.fatigue_level ) :
+                #if isTired( self.fatigue_level ) :
+                if isTired( userdata.follow_ball_fatigue_counter_in + 1 ):
                     print('Robot is tired of playing...')
                     ball_reached = False
                     ball_detected = False
@@ -434,14 +422,14 @@ class FollowBall(smach.State):
                 null_twist = Twist()
                 self.robot_controller.publish(null_twist)
                 #   Account the increment in the robot fatigue
-                userdata.follow_ball_fatigue_counter_out = self.fatigue_level
+                #userdata.follow_ball_fatigue_counter_out = self.fatigue_level
                 return 'turn_head'
         #   Stop play if the robot does not see ball for 5 sec or more
         print("Dead time : ", int(time_since), " [s]")
         ball_reached = False
         ball_detected = False
         #   Account the increment in the robot fatigue
-        userdata.follow_ball_fatigue_counter_out = self.fatigue_level
+        #userdata.follow_ball_fatigue_counter_out = self.fatigue_level
         return 'stop_play'
 
 
