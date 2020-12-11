@@ -1,12 +1,10 @@
-<?xml version="1.0" ?>
-<robot name="robot_rot_camera" xmlns:xacro="http://ros.org/wiki/xacro">
-<xacro:include filename="$(find robot_simulation)/urdf/robot_rot_camera.gazebo"/>
-
-    <!--    Define weels properies  -->
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_xacro">
+    <xacro:include filename="$(find robot_simulation_description)/urdf/robot.gazebo"/>
+					
     <xacro:property name="length_wheel" value="0.04" />
     <xacro:property name="radius_wheel" value="0.1" />
 
-    <!--    Define a general inertial matrix    -->
     <xacro:macro name="default_inertial" params="mass">
         <inertial>
             <mass value="${mass}" />
@@ -15,44 +13,51 @@
         </inertial>
     </xacro:macro>
 
-    <!--    Define the wheel geometry   -->
     <xacro:macro name="wheel_geometry">
         <geometry>
             <cylinder length="${length_wheel}" radius="${radius_wheel}"/>
         </geometry>
     </xacro:macro>
-
-    <!--    Define a bunch of colors    -->
+	
+	
     <material name="black">
         <color rgba="0.0 0.0 0.0 1.0"/>
     </material>
+
     <material name="blue">
         <color rgba="0.203125 0.23828125 0.28515625 1.0"/>
     </material>
+
     <material name="green">
         <color rgba="0.0 0.8 0.0 1.0"/>
     </material>
+
     <material name="grey">
         <color rgba="0.2 0.2 0.2 1.0"/>
     </material>
+
     <material name="orange">
         <color rgba="1.0 0.423529411765 0.0392156862745 1.0"/>
     </material>
+
     <material name="brown">
         <color rgba="0.870588235294 0.811764705882 0.764705882353 1.0"/>
     </material>
+
     <material name="red">
         <color rgba="0.80078125 0.12890625 0.1328125 1.0"/>
     </material>
+
     <material name="white">
         <color rgba="1.0 1.0 1.0 1.0"/>
     </material>
+
 
 <!--###########################################################################
                                     THE LINKS
     ########################################################################### -->
 
-    <!--    Define the moving platform link -->
+    <!--    The moving platform -->
     <link name="link_chassis">
         <!-- pose and inertial -->
         <pose>0 0 0.1 0 0 0</pose>
@@ -61,7 +66,7 @@
             <origin rpy="0 0 0" xyz="0 0 0.1"/>
             <inertia ixx="0.0395416666667" ixy="0" ixz="0" iyy="0.106208333333" iyz="0" izz="0.106208333333"/>
         </inertial>
-        <!--    The body of the moving platform    -->
+        <!-- body -->
         <collision name="collision_chassis">
             <geometry>
                 <box size="0.5 0.3 0.07"/>
@@ -74,9 +79,9 @@
             </geometry>
             <material name="blue"/>
         </visual>
-        <!--    The castor wheel in the front  -->
+        <!-- caster front -->
         <collision name="caster_front_collision">
-            <origin rpy=" 0 0 0" xyz="0.2 0 -0.05"/>
+            <origin rpy=" 0 0 0" xyz="0.35 0 -0.05"/>
             <geometry>
                 <sphere radius="0.05"/>
             </geometry>
@@ -89,7 +94,7 @@
         </visual>
     </link>
 
-    <!--    The fixed wheel on the right    -->
+    <!--    The right Wheel -->
     <link name="link_right_wheel">
         <xacro:default_inertial mass="0.2"/>
         <collision name="link_right_wheel_collision">
@@ -99,14 +104,14 @@
         <visual name="link_right_wheel_visual">
             <origin rpy="0 1.5707 1.5707" xyz="0 0 0"/>
             <xacro:wheel_geometry />
-            <material name="yellow"/>
+            <material name="red"/>
         </visual>
     </link>
 
-    <!--    The fixed wheel on the left -->
+    <!--    The left wheel  -->
     <link name="link_left_wheel">
         <xacro:default_inertial mass="0.2"/>
-        <collision name="link_lef_wheel_collision">
+        <collision name="link_left_wheel_collision">
             <origin rpy="0 1.5707 1.5707" xyz="0 0 0"/>
             <xacro:wheel_geometry />
         </collision>
@@ -117,43 +122,50 @@
         </visual>
     </link>
 
-    <!--    The rotating base where the camera is placed    -->
-    <link name="link_rotating_base">
+    <!--    The neck    -->
+    <link name="link_neck">
         <inertial>
             <mass value="0.1"/>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <inertia ixx="0.0000416666667" ixy="0" ixz="0" iyy="0.0000416666667" iyz="0" izz="0.0000416666667"/>
         </inertial>
         <collision name="link_rotating_base_collision">
-            <origin rpy="0 0 0" xyz="0 0 0" />
+            <origin rpy="0 0 0" xyz="0 0 0.05" />
             <geometry>
-                <cylinder length="0.50" radius="0.05"/>
+                <cylinder length="0.10" radius="0.05"/>
             </geometry>
         </collision>
         <visual name="link_rotating_base_visual" >
-            <origin rpy="0 0 0" xyz="0 0 0" />
+            <origin rpy="0 0 0" xyz="0 0 0.05" />
             <geometry>
-                <cylinder length="0.50" radius="0.05"/>
+                <cylinder length="0.10" radius="0.05"/>
             </geometry>
             <material name="green"/>
         </visual>
     </link>
 
-    <!--    The camera  -->
-    <link name="link_camera" >
-        <collision name="link_camera_collision">
-            <origin rpy="0 0 0" xyz="0 0 0" />
+    <!--    The Camera  -->
+    <link name="camera_link">
+        <collision>
+            <origin xyz="0 0 0.125" rpy="0 0 0"/>
             <geometry>
-                <box size="0.05 0.05 0.05"/>
+                <box size="0.2 0.2 0.2"/>
             </geometry>
         </collision>
-        <visual name="link_camera_visual" >
-            <origin rpy="0 0 0" xyz="0 0 0.025" />
+        <visual>
+            <origin xyz="0 0 0.1" rpy="0 0 0"/>
             <geometry>
-                <box size="0.05 0.05 0.05"/>
+                <box size="0.2 0.2 0.2"/>
             </geometry>
-            <material name="black"/>
+            <material name="brown">
+                <color rgba="1 0 0 1"/>
+            </material>
         </visual>
+        <inertial>
+            <mass value="1e-5" />
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+        </inertial>
     </link>
 
 <!--###########################################################################
@@ -161,19 +173,18 @@
     ########################################################################### -->
 
 
-    <!--    Joint form moving platform to right fixed wheel -->
     <joint name="joint_right_wheel" type="continuous">
-        <origin rpy="0 0 0" xyz="-0.05 -0.15 0"/>
+        <origin rpy="0 0 0" xyz="-0.05 0.15 0"/>
         <child link="link_right_wheel"/>
         <parent link="link_chassis"/>
         <axis rpy="0 0 0" xyz="0 1 0"/>
         <limit effort="10000" velocity="1000"/>
         <joint_properties damping="1.0" friction="1.0"/>
     </joint>
-
-    <!--    Joint form moving platform to left fixed wheel -->
+  
+  
     <joint name="joint_left_wheel" type="continuous">
-        <origin rpy="0 0 0" xyz="-0.05 0.15 0"/>
+        <origin rpy="0 0 0" xyz="-0.05 -0.15 0"/>
         <child link="link_left_wheel"/>
         <parent link="link_chassis"/>
         <axis rpy="0 0 0" xyz="0 1 0"/>
@@ -181,23 +192,36 @@
         <joint_properties damping="1.0" friction="1.0"/>
     </joint>
 
-    <!--    Joint form moving platform to to rotating base  -->
-    <joint name="joint_rotating_base" type="continuous">
-        <origin rpy="0 0 0" xyz="0 0 0.25"/>
-        <child link="link_rotating_base"/>
+    <!--    Joint form moving platform to the rotating base  -->
+    <joint name="joint_neck" type="continuous">
+        <origin rpy="0 0 0" xyz="0 0 0.035"/>
+        <child link="link_neck"/>
         <parent link="link_chassis"/>
         <axis rpy="0 0 0" xyz="0 0 1"/>
         <limit effort="10000" velocity="1000"/>
         <joint_properties damping="1.0" friction="1.0"/>
     </joint>
-
-    <!--    Joint form the rotating platfrom to the camera  -->
-    <joint name="joint_camera" type="fixed">
-        <origin xyz="0 0 0.25" rpy="0 0 0"/>
-        <parent link="link_rotating_base"/>
-        <child link="link_camera"/>
+  
+    <!--    Joint form the neck to the camera  -->
+    <joint name="camera_joint" type="fixed">
+        <axis xyz="0 1 0" />
+        <origin xyz="0.0 0 0.05" rpy="0 0 0"/>
+        <parent link="link_neck"/>
+        <child link="camera_link"/>
     </joint>
 
+
+
+    <transmission name="neck_joint_transmission">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="joint_neck">
+            <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="motor_neck">
+            <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+            <mechanicalInterface>1</mechanicalInterface>
+        </actuator>
+    </transmission>
 
 
 
