@@ -90,6 +90,10 @@ import cv2
     PROBLEMS
         Se la palla passa sopra al robot o veramente a fianco per il robot è come se la avesse raggiunta
         limita velocita troppo grandi quando appal e lontana
+
+        quando trova la palla di frnt ferma il fatigue counter non aumenta
+
+        not able to augment the counter even with long distance covered if the motion is not completed
 """
 
 
@@ -111,25 +115,15 @@ sleep_station = Pose()
 fatigue_threshold = 0
 
 ##
+#   \brief Defines the maximum time to wait for seeing a ball before returning into the MOVE state.
+maximum_dead_time = 0
+
+##
 #   Service client defined as global to be acessible outside the main.
 move_to_pos_client = rospy.ServiceProxy('/MoveToPosition', MoveTo)
 
 
-##
-#    \brief reachPosition calls the service /MoveToPosition and prints out a string.
-#    \param pose [geometry_msgs/Pose] is the position the robot should reach.
-#    \param info [string] is information to display when approaching the position.
-#
-#    This function calls the service /MoveToPosition and prints out a string. Its usage should
-#    preferred insted of pasting the same lines of code around.
-@deprecated(version='0.2', reason="You should use the actionlib server")
-def reachPosition(pose, info):
-    rospy.wait_for_service('/MoveToPosition')
-    try:
-        print(info)
-        move_to_pos_client(pose)
-    except rospy.ServiceException as e:
-        print("Service call failed: %s"%e)
+
 
 # Creates the SimpleActionClient, passing the type of the action
 # (PlanningAction) to the constructor.
@@ -217,37 +211,6 @@ def imageReceived(ros_data):
         robot_twist = Twist()
 
 
-neck_controller = rospy.Publisher('joint_neck_position_controller/command', Float64, queue_size=1)
-def turn_head():
-    global neck_controller
-    #   Definition of the neck rotation angle
-    neck_angle = Float64()
-    #   Definition of the frequency for publishing command
-    #   to the robot neck
-    neck_controller_rate = rospy.Rate(50)
-    print("Turning the head counterclockwise")
-    #   Turn the head counterclockwise
-    while neck_angle.data < math.pi/4 :
-        neck_angle.data = neck_angle.data +0.01;
-        neck_controller.publish(neck_angle)
-        neck_controller_rate.sleep()
-    print("Turning the head clockwise")
-    #   Turn the head clockwise
-    while neck_angle.data > -math.pi/4 :
-        neck_angle.data = neck_angle.data -0.01;
-        neck_controller.publish(neck_angle)
-        neck_controller_rate.sleep()
-    print("Resetting the head straight")
-    #   Turn the head straight
-    while neck_angle.data < 0 :
-        neck_angle.data = neck_angle.data +0.01;
-        neck_controller.publish(neck_angle)
-        neck_controller_rate.sleep()
-    ball_detected = False
-    ball_reached = False
-
-
-
 ##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
 #    \param level [integer] is the current level of fatigue of the robot.
@@ -288,8 +251,8 @@ class Move(smach.State):
 
             smach.State.__init__(self,
                                  outcomes=['tired','playing'],
-                                 input_keys=['move_fatigue_counter_in', 'move_person_position_in'],
-                                 output_keys=['move_fatigue_counter_out', 'move_person_position_out'])
+                                 input_keys=['move_fatigue_counter_in'],
+                                 output_keys=['move_fatigue_counter_out'])
 
 
     ##
@@ -396,65 +359,72 @@ class Rest(smach.State):
         return 'rested'
 
 ##
-#   \class Play
-#   \brief This class defines the state of the state machine corresponding to the robot playing.
+#   \class FollowBall
+#   \brief This class defines the state of the state machine corresponding to the robot moving towards the detected ball.
 #
 #   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is the Play state. In this state the robot first goes to the
-#   person postion, then, it waits for the person gesture.
-#   This is done by calling the services /MoveToPosition and /GiveGesture. When a position
-#   is returned, it moves to that position and it goes back to the person, waiting for another
-#   position to reach.
+#   that is represented here is a substate of the state Play. In this state the robot moves towards
+#   the ball that has beed detected. This is done by simply publishing the twist that has been
+#   computed in the callback.
 #   As part of the smach class, this class has the member function execute() providing the intended behavior.
 #   For more details about the content of this class, see the member function documentation.
 #
-class Play(smach.State):
+class FollowBall(smach.State):
 
     ##
     #   \brief __init__ is the constructor for the class.
     #
     #   This constructor initializes the outcomes and the input outout keys for this staste.
-    #   Additionally, it initializes a service client used to call the /Gesture server for
-    #   obtaining a gesture from the person
+    #   Additionally, it initializes the publisher for the robot velocity command and few others
+    #   members of this class.
     #
     def __init__(self):
             smach.State.__init__(self,
-                                 outcomes=['tired','stop_play'],
-                                 input_keys=['play_fatigue_counter_in', 'play_person_position_in'],
-                                 output_keys=['play_fatigue_counter_out', 'play_person_position_out'])
+                                 outcomes=['turn_head','tired','stop_play'],
+                                 input_keys=['follow_ball_fatigue_counter_in'],
+                                 output_keys=['follow_ball_fatigue_counter_out'])
 
             self.robot_controller = rospy.Publisher('cmd_vel', Twist, queue_size=1)
             self.last_detection = rospy.Time.now()
+            self.fatigue_level = 0
+
+
 
 
 
     ##
-    #   \brief This function performs the behavior for the state
-    #   \param userdata Is the structure containing the data shared among states.
+    #   \brief execute This function performs the behavior for the state
+    #   \param userdata Is the structure containing the data shared among states, it is used
+    #   to pass the level of fatigue among states.
     #   \return a string consisting of the state outcome
     #
-    #   This function performs the Play behavior wich consist of interaction with the person.
-    #   It moves the robot in order to reach the person position and it waits for gesture,
-    #   calling the service /Gesture. This procedure is done for n times, with n randomly
-    #   varying between 1 and 4
-    #   Each time the robot moves it increases the level of fatigue and it checks if it
-    #   is equal to the maximum.
+    #   This funtion makes the robot move towards the detected ball. To do so, it publishes the
+    #   geometry_msgs/Twist message defined in the imageReceived callback.
+    #   Once the ball has been received, first it increases the fatigue counter as a new motion has been
+    #   completed, then it checks that the robot has not reached the fatigue threshold. In this case
+    #   it returns 'turn_head' in other to chage the state into the TURN_HEAD state
     #
     def execute(self, userdata):
         global ball_detected
         global ball_reached
         global robot_twist
         global time_since
+        global maximum_dead_time
 
-        while time_since <= 5 and not rospy.is_shutdown():
+        #   Due to the fact that the output key is now the output of the substate machine
+        #   it is not possible anymore to simply use the input and output key, but I need
+        #   to declare and use a local variable to account the fatigue increasement.
+        self.fatigue_level = userdata.follow_ball_fatigue_counter_in
+
+        while time_since <= maximum_dead_time and not rospy.is_shutdown():
             self.robot_controller.publish(robot_twist)
             if ball_reached :
                 print("Ball Reached")
                 #   Increment the counter for the fatigue as the robot has moved
-                userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
-                print('Level of fatigue : ', userdata.play_fatigue_counter_in)
+                self.fatigue_level = self.fatigue_level + 1
+                print('Level of fatigue : ', self.fatigue_level)
                 #   Check if the robot is tired
-                if isTired(userdata.play_fatigue_counter_in) :
+                if isTired( self.fatigue_level ) :
                     print('Robot is tired of playing...')
                     ball_reached = False
                     ball_detected = False
@@ -463,16 +433,51 @@ class Play(smach.State):
                 #   Make sure the robot stays still
                 null_twist = Twist()
                 self.robot_controller.publish(null_twist)
-                #   If not tired turn the head and begin new iteration
-                turn_head()
+                #   Account the increment in the robot fatigue
+                userdata.follow_ball_fatigue_counter_out = self.fatigue_level
+                return 'turn_head'
         #   Stop play if the robot does not see ball for 5 sec or more
         print("Dead time : ", int(time_since), " [s]")
         ball_reached = False
         ball_detected = False
+        #   Account the increment in the robot fatigue
+        userdata.follow_ball_fatigue_counter_out = self.fatigue_level
         return 'stop_play'
 
 
+class TurnHead(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['done'],
+                             input_keys=['turn_head_fatigue_counter_in'],
+                             output_keys=['turn_head_fatigue_counter_out'])
+        #   Definition of the position publisher for the robot neck joint
+        self.neck_controller = rospy.Publisher('joint_neck_position_controller/command', Float64, queue_size=1)
+        #   Definition of the frequency for publishing command to the robot neck
+        self.neck_controller_rate = rospy.Rate(50)
 
+    def execute(self, userdata):
+        #   Definition of the neck rotation angle
+        neck_angle = Float64()
+        print("Turning the head counterclockwise")
+        #   Turn the head counterclockwise
+        while neck_angle.data < math.pi/4 :
+            neck_angle.data = neck_angle.data +0.01;
+            self.neck_controller.publish(neck_angle)
+            self.neck_controller_rate.sleep()
+        print("Turning the head clockwise")
+        #   Turn the head clockwise
+        while neck_angle.data > -math.pi/4 :
+            neck_angle.data = neck_angle.data -0.01;
+            self.neck_controller.publish(neck_angle)
+            self.neck_controller_rate.sleep()
+        print("Resetting the head straight")
+        #   Turn the head straight
+        while neck_angle.data < 0 :
+            neck_angle.data = neck_angle.data +0.01;
+            self.neck_controller.publish(neck_angle)
+            self.neck_controller_rate.sleep()
+        userdata.turn_head_fatigue_counter_out = userdata.turn_head_fatigue_counter_in
+        return 'done'
 
 ##
 #   \brief __main__ intializes the ros node and the smach state machine
@@ -495,6 +500,7 @@ def main():
     global sleep_station
     global fatigue_threshold
     global last_detection
+    global maximum_dead_time
 
     last_detection = rospy.Time.now().to_sec()
 
@@ -512,11 +518,12 @@ def main():
 
     fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
 
+    maximum_dead_time = rospy.get_param('/maximum_dead_time', 5)
+
     print("fatigue_threshold" , fatigue_threshold)
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['behavior_interface'])
     sm.userdata.fatigue_level = 0
-    sm.userdata.person = Pose()
 
     # Open the container
     with sm:
@@ -524,22 +531,38 @@ def main():
         smach.StateMachine.add('MOVE', Move(),
                                transitions={'tired':'REST', 'playing':'PLAY'},
                                remapping={'move_fatigue_counter_in':'fatigue_level',
-                                          'move_fatigue_counter_out':'fatigue_level',
-                                          'move_person_position_out':'person',
-                                          'move_person_position_in':'person'})
+                                          'move_fatigue_counter_out':'fatigue_level'})
 
         smach.StateMachine.add('REST', Rest(),
                                transitions={'rested':'MOVE'},
                                remapping={'rest_fatigue_counter_in':'fatigue_level',
                                           'rest_fatigue_counter_out':'fatigue_level'})
 
-        smach.StateMachine.add('PLAY', Play(),
-                               transitions={'tired':'REST',
-                                            'stop_play':'MOVE'},
-                               remapping={'play_fatigue_counter_in':'fatigue_level',
-                                          'play_fatigue_counter_out':'fatigue_level',
-                                          'play_person_position_in':'person',
-                                          'play_person_position_out':'person'})
+        sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'bored_of_play'],
+                                    input_keys=['sub_sm_input_fatigue'],
+                                    output_keys=['sub_sm_output_fatigue'])
+
+        with sub_sm:
+
+            smach.StateMachine.add('FOLLOW_BALL', FollowBall(),
+                                   transitions={'turn_head':'TURN_HEAD',
+                                                'tired':'sleepy_robot',
+                                                'stop_play':'bored_of_play'},
+                                   remapping={'follow_ball_fatigue_counter_in':'sub_sm_input_fatigue',
+                                              'follow_ball_fatigue_counter_out':'sub_sm_output_fatigue'})
+
+            smach.StateMachine.add('TURN_HEAD', TurnHead(),
+                                   transitions={'done':'FOLLOW_BALL'},
+                                   remapping={'turn_head_fatigue_counter_in':'sub_sm_output_fatigue',
+                                              'turn_head_fatigue_counter_out':'sub_sm_input_fatigue'})
+
+
+        smach.StateMachine.add('PLAY', sub_sm,
+                               transitions={'bored_of_play':'MOVE',
+                                            'sleepy_robot':'REST'},
+                               remapping={'sub_sm_input_fatigue':'fatigue_level',
+                                          'sub_sm_output_fatigue':'fatigue_level'})
+
 
     # Create and start the introspection server for visualization
     sis = smach_ros.IntrospectionServer('robot_behavior_state_machine', sm, '/SM_ROOT')
@@ -556,55 +579,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-"""
-
-smach.StateMachine.add('REST', Rest(),
-                       transitions={'rested':'MOVE'},
-                       remapping={'rest_fatigue_counter_in':'fatigue_level',
-                                  'rest_fatigue_counter_out':'fatigue_level'})
-
-smach.StateMachine.add('PLAY', Play(),
-                       transitions={'tired':'REST',
-                                    'stop_play':'MOVE'},
-                       remapping={'play_fatigue_counter_in':'fatigue_level',
-                                  'play_fatigue_counter_out':'fatigue_level',
-                                  'play_person_position_in':'person',
-                                  'play_person_position_out':'person'})
-
-
-"""
-"""
-#   Call the service to reach the position where the person is
-reachPosition(userdata.play_person_position_in, 'Going to person position')
-#   Increment the counter for the fatigue as the robot has moved
-userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
-#   Print a log showing the current level of fatigue
-print('Level of fatigue : ', userdata.play_fatigue_counter_in)
-
-#   Random number of times to play between 1 and 4
-number_of_iterations = random.randint(1, 4)
-#   Iterate in the Play behavior
-for iteration in range(number_of_iterations):
-    #   First check if the robot is tired
-    if isTired(userdata.play_fatigue_counter_in) :
-        #   Print a log to inform about this event
-        print('Robot is tired of playing...')
-        #   Return 'tired' to change the state
-        return 'tired'
-
-    #   Else if the robot is not tired, wait for the gesture
-    rospy.wait_for_service('/Gesture')
-    try:
-        gesture = self.wait_for_gesture()
-        print('obtained', gesture.goal.position.x, gesture.goal.position.y)
-    except rospy.ServiceException as e:
-        print("Service call failed: %s"%e)
-
-    #   Call the service to reach the pointed position
-    reachPosition(gesture.goal, 'Going to pointed position')
-    #   Increase the fatigue counter as the robot haa moved
-    userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
-    print('Level of fatigue : ', userdata.play_fatigue_counter_in)
-return 'stop_play'
-"""
