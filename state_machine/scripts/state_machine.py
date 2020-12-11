@@ -89,7 +89,7 @@ import cv2
 
     PROBLEMS
         Se la palla passa sopra al robot o veramente a fianco per il robot è come se la avesse raggiunta
-
+        limita velocita troppo grandi quando appal e lontana
 """
 
 
@@ -153,7 +153,7 @@ def reachPosition(pose, wait=False, verbose=False):
 
 
 
-sleepy_robot = False
+#sleepy_robot = False
 ball_detected = False
 ball_reached = False
 robot_twist = Twist()
@@ -168,59 +168,54 @@ def imageReceived(ros_data):
     global last_detection
     global sleepy_robot
     time_since = rospy.Time.now().to_sec() - last_detection
-    if not sleepy_robot :
-        #### direct conversion to CV2 ####
-        np_arr = np.frombuffer(ros_data.data, np.uint8)
-        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
-        greenLower = (50, 50, 20)
-        greenUpper = (70, 255, 255)
-        blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
-        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, greenLower, greenUpper)
-        mask = cv2.erode(mask, None, iterations=2)
-        mask = cv2.dilate(mask, None, iterations=2)
-        #cv2.imshow('mask', mask)
-        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-                                cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        center = None
-        # only proceed if at least one contour was found
-        if len(cnts) > 0:
-            # find the largest contour in the mask, then use
-            # it to compute the minimum enclosing circle and
-            # centroid
-            c = max(cnts, key=cv2.contourArea)
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            M = cv2.moments(c)
-            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-            # only proceed if the radius meets a minimum size
-            if radius > 10:
-                # draw the circle and centroid on the frame,
-                # then update the list of tracked points
-                cv2.circle(image_np, (int(x), int(y)), int(radius),
-                           (0, 255, 255), 2)
-                cv2.circle(image_np, center, 5, (0, 0, 255), -1)
-                robot_twist = Twist()
-                robot_twist.angular.z = 0.005*(center[0]-400)
-                robot_twist.linear.x = 0.02*(110-radius)
-                ball_detected = True
-                print("Detected from callback")
-                #   Reset time of last detection
-                last_detection = rospy.Time.now().to_sec()
-                #   Stop the robot right there
-                #planning_client.cancel_all_goals()
-                #   Check if the ball is reached
-                if 100-radius <= 0:
-                    #   The robot has reached the ball
-                    ball_reached = True
-                    robot_twist = Twist()
-                else:
-                    ball_reached = False
-        else:
-            ball_detected = False
+    #if not sleepy_robot :
+    #### direct conversion to CV2 ####
+    np_arr = np.frombuffer(ros_data.data, np.uint8)
+    image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
+    greenLower = (50, 50, 20)
+    greenUpper = (70, 255, 255)
+    blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, greenLower, greenUpper)
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    center = None
+    # only proceed if at least one contour was found
+    if len(cnts) > 0:
+        # find the largest contour in the mask, then use
+        # it to compute the minimum enclosing circle and
+        # centroid
+        c = max(cnts, key=cv2.contourArea)
+        ((x, y), radius) = cv2.minEnclosingCircle(c)
+        M = cv2.moments(c)
+        center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+        # only proceed if the radius meets a minimum size
+        if radius > 10:
+            # draw the circle and centroid on the frame,
+            # then update the list of tracked points
+            cv2.circle(image_np, (int(x), int(y)), int(radius),
+                       (0, 255, 255), 2)
+            cv2.circle(image_np, center, 5, (0, 0, 255), -1)
             robot_twist = Twist()
-    else :
-        print("Sleepy Robot")
+            robot_twist.angular.z = 0.005*(center[0]-400)
+            robot_twist.linear.x = 0.02*(110-radius)
+            ball_detected = True
+            #   Reset time of last detection
+            last_detection = rospy.Time.now().to_sec()
+            #   Check if the ball is reached
+            if 100-radius <= 0:
+                #   The robot has reached the ball
+                ball_reached = True
+                robot_twist = Twist()
+            else:
+                ball_reached = False
+    else:
+        ball_detected = False
+        robot_twist = Twist()
+
 
 neck_controller = rospy.Publisher('joint_neck_position_controller/command', Float64, queue_size=1)
 def turn_head():
@@ -264,7 +259,7 @@ def turn_head():
 def isTired(fatigue_level):
     global sleepy_robot
     if fatigue_level >= fatigue_threshold:
-        sleepy_robot = True
+        #sleepy_robot = True
         return True
     else :
         return False
@@ -335,7 +330,6 @@ class Move(smach.State):
             else :
                 #   If none of the previous was true, then continue with the Move behavior
                 if planning_client.get_result() :
-                    print("Continuing to move")
                     #   Increment the level of the robot fatigue
                     userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
                     #   Print a log to show the level of fatigue
@@ -347,6 +341,7 @@ class Move(smach.State):
                         #   Return 'tired' to change the state
                         return 'tired'
                     else:
+                        print("Continuing to move")
                         #   Declare a geometry_msgs/Pose for the random position
                         random_ = Pose()
                         #   Define the random components (x, y) of this random position
@@ -386,15 +381,15 @@ class Rest(smach.State):
     #   to let the robot to move and performs his behaviors.
     #
     def execute(self, userdata):
-        global sleepy_robot
-        sleepy_robot = True
+        #global sleepy_robot
+        #sleepy_robot = True
         #   Call the service to reach the position corresponding to the sleeping position
         reachPosition(sleep_station, wait=True)
         #   Sleep for some time
         print('Sleeping...')
         rospy.sleep(10)
         print('Woke up!')
-        sleepy_robot = False
+        #sleepy_robot = False
         #   Reset the fatigue counter afther the robot is well rested
         userdata.rest_fatigue_counter_out = 0
         #   Return 'rested' to change the state

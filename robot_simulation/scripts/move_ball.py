@@ -38,13 +38,9 @@ pubz = None
 act_s = None
 
 # callbacks
-
-
 def clbk_odom(msg):
     global position_
     global pose_
-    global yaw_
-
     # position
     position_ = msg.pose.pose.position
     pose_ = msg.pose.pose

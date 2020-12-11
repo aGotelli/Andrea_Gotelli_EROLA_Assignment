@@ -67,19 +67,40 @@ import numpy as np
 
 
 ##
-#   \brief Define the width of the discretized world. It is a parameter defined by the user.
+#   \brief Define the width of the discretized world.
+#
+#   It is a parameter that the user may change with the use of the correct ROS parameter.
 width = 0
 
 ##
-#   \brief Define the height of the discretized world. It is a parameter defined by the user.
+#   \brief Define the height of the discretized world.
+#
+#   It is a parameter that the user may change with the use of the correct ROS parameter.
 height = 0
 
+##
+#   \brief Define how many movements the ball will perform before hiding.
+#
+#   It is a parameter that the user may change with the use of the correct ROS parameter.
 number_of_movements = 0
 
-
-# Creates the SimpleActionClient, passing the type of the action
-# (PlanningAction) to the constructor.
+##
+#   \brief Creates the SimpleActionClient, passing the type of the action (PlanningAction) to the constructor.
+#
+#   It is defined as global in order to be used with a global function
 planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
+
+##
+#   \brief reachPosition Is a global function which calls the appropriate action service
+#   \param pose Is the pose to reach
+#   \param wait default False, if true makes the function blocking by calling the action server
+#                memeber function wait_for_result()
+#   \param verbose default False, if true it make the function to print some logs
+#                   about the position to reach
+#
+#   This function serves as a compact way to call the action service. It waits for the service
+#   to exist, it gives the position to be reached and it may waits for the results, depending
+#   on the boolean state of the relative parameter.
 def reachPosition(pose, wait=False, verbose=False):
     global planning_client
     if verbose :
@@ -96,30 +117,36 @@ def reachPosition(pose, wait=False, verbose=False):
     if wait:
         planning_client.wait_for_result()
 
+
+##
+#   \brief waitForRandTime Global blocking function
+#   \param min Default 10, is the minimum time, in seconds
+#   \param max Default 20, is the maximum time, in seconds
+#
+#   This function only calls the rospy function sleep(t) which
+#   stops the code for a time t. this time is computed randomly
+#   in the interval given by the min and max parameters.
+#   This interval is [10 20] by default.
 def waitForRandTime(min=10, max=20):
-    print("min : ", min, " max : ", max)
     rospy.sleep( random.randint(min, max) )
 
 
 ##
 #   \class Move
-#   \brief This class defines the state of the state machine corresponding to the robot randomly moving
+#   \brief This class defines the state of the state machine corresponding to the ball randomly moving
 #
 #   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is the Move state. In this state the robot moves around randomly calling
-#   the service /MoveToPosition. As part of the smach class, this class has the member function execute()
+#   that is represented here is the Move state. In this state the ball moves around randomly.
+#   As part of the smach class, this class has the member function execute()
 #   providing the intended behavior. For more details about the content of this class, see the member functions
 #   documentation.
 #
 class Move(smach.State):
     ##
     #   \brief __init__ initializes the class and its members
-    #   \param outcomes list of the possible outcomes from this state of the state machine.
-    #   \param input_keys list of the possible input for this state (user data shared among states).
-    #   \param output_keys list of the possible outputs for this state (user data shared among states).
     #
     #   This member function initializes the state machine state. It follows the conventions for smach.
-    #   Moreover, it initializes the subscriber necessary to receive a command from the person.
+    #   It calls the the initializer of the smach State class passing the unique outcome from this state.
     #
     def __init__(self):
             smach.State.__init__(self, outcomes=['hide'])
@@ -127,13 +154,21 @@ class Move(smach.State):
 
     ##
     #   \brief execute is main member function of the class, containing the intended behavior
+    #   \param userdata Unused parameter in order to pass userdata to the function.
     #   \return a string consisting of the state outcome
     #
+    #   This member function enters in two subsequent loops. The first loop ensures that the
+    #   ROS enviroment is still available, i.e. that the roscore is still operating, and
+    #   it enters in a second loop which iterates for a fixed number of time the moving
+    #   sequence. The number of time is given by the global variable number_of_movements.
     #
+    #   The moving sequence is simply obtained by the creation of a random position within the
+    #   world, and then the position is fed into the function reachPosition.
+    #
+    #   After the last motion, the function returns a string in order to change the state into "hide"
     #
     def execute(self, userdata):
         global number_of_movements
-        print("Number of movements : ", number_of_movements)
         while not rospy.is_shutdown():
             for index in range(number_of_movements):
                 #   Declare a geometry_msgs/Pose for the random position
@@ -153,27 +188,34 @@ class Move(smach.State):
 
 
 ##
-#   \class Rest
+#   \class Hide
 #   \brief This class defines the state of the state machine corresponding to the robot sleeping.
 #
 #   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is the Rest state. Where the pet like robot rests for recover energies.
+#   that is represented here is the Hide state. In this state, the ball is hidden from the robot.
 #   As part of the smach class, this class has the member function execute() providing the intended
 #   behavior. For more details about the content of this class, see the member function documentation.
 #
-class Rest(smach.State):
+class Hide(smach.State):
+
     ##
-    #   \brief The __init__ constructor initializes the state outcome and input output keys
+    #   \brief __init__ initializes the class and its members
+    #
+    #   This member function initializes the state machine state. It follows the conventions for smach.
+    #   It calls the the initializer of the smach State class passing the unique outcome from this state.
+    #
     def __init__(self):
             smach.State.__init__(self, outcomes=['move'])
     ##
     #   \brief  The member function executing the state behavior
-    #   \param userdata Is the structure containing the data shared among states.
+    #   \param userdata Unused parameter in order to pass userdata to the function.
     #   \return a string consisting of the state outcome
     #
-    #   This simple member function moves the robot in the sleeping position and waits for some time
-    #   in order to simulate the pet like robot sleeping. It also resets the fatigue level to zero
-    #   to let the robot to move and performs his behaviors.
+    #   This simple member function moves the ball two meters below the floor in order to make it
+    #   disappear for the robot. It simply creates the position two meters below the origin of the
+    #   world frame and it fed it as a parameter of the function reachPosition. In this case the
+    #   parameter wait is setted to true in order to make the function blocking. Moreover, it
+    #   waits a random amount of time calling the function waitForRandTime with default parameters.
     #
     def execute(self, userdata):
         #   Declare a geometry_msgs/Pose for the random position
@@ -191,7 +233,7 @@ class Rest(smach.State):
 
 
 ##
-#   \brief __main__ intializes the ros node and the smach state machine
+#   \brief main intializes the ros node and the smach state machine
 #
 #   This functions does nothing more than initializing the node and the state machine.
 #   It also retrieves the parameters from the ros parameters server and the user data
@@ -223,7 +265,7 @@ def main():
         smach.StateMachine.add('MOVE', Move(),
                                transitions={'hide':'HIDE'})
 
-        smach.StateMachine.add('HIDE', Rest(),
+        smach.StateMachine.add('HIDE', Hide(),
                                transitions={'move':'MOVE'})
 
     # Create and start the introspection server for visualization
