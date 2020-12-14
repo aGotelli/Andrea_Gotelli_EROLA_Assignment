@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # import ros stuff
 import rospy
 from sensor_msgs.msg import LaserScan
@@ -8,7 +8,9 @@ from tf import transformations
 import math
 import actionlib
 import actionlib.msg
-import motion_plan.msg
+import robot_simulation_messages.msg
+
+
 
 # robot state variables
 position_ = Point()
@@ -23,14 +25,14 @@ desired_position_.z = 0
 yaw_precision_ = math.pi / 9  # +/- 20 degree allowed
 yaw_precision_2_ = math.pi / 90  # +/- 2 degree allowed
 dist_precision_ = 0.1
-kp_a = 3.0  ## In ROS Noetic, it may be necessary to change the sign of this proportional controller
+kp_a = -3.0
 kp_d = 0.2
 ub_a = 0.6
 lb_a = -0.5
 ub_d = 0.6
 
 # publisher
-pub = None
+robot_velocity_command = None
 
 # action_server
 act_s = None
@@ -60,7 +62,7 @@ def clbk_odom(msg):
 def change_state(state):
     global state_
     state_ = state
-    print ('State changed to [%s]' % state_)
+    #print ('State changed to [%s]' % state_)
 
 
 def normalize_angle(angle):
@@ -70,10 +72,10 @@ def normalize_angle(angle):
 
 
 def fix_yaw(des_pos):
-    global yaw_, pub, yaw_precision_2_, state_
+    global yaw_, robot_velocity_command, yaw_precision_2_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
     err_yaw = normalize_angle(desired_yaw - yaw_)
-    rospy.loginfo(err_yaw)
+    #rospy.loginfo("Yaw error: %s", err_yaw)
 
     twist_msg = Twist()
     if math.fabs(err_yaw) > yaw_precision_2_:
@@ -83,38 +85,37 @@ def fix_yaw(des_pos):
         elif twist_msg.angular.z < lb_a:
             twist_msg.angular.z = lb_a
 
-    pub.publish(twist_msg)
+    robot_velocity_command.publish(twist_msg)
 
     # state change conditions
     if math.fabs(err_yaw) <= yaw_precision_2_:
-        print ('Yaw error: [%s]' % err_yaw)
+        #print ('Yaw error: [%s]' % err_yaw)
         change_state(1)
 
 
 def go_straight_ahead(des_pos):
-    global yaw_, pub, yaw_precision_, state_
+    global yaw_, robot_velocity_command, yaw_precision_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
-    err_yaw = desired_yaw - yaw_
     err_pos = math.sqrt(pow(des_pos.y - position_.y, 2) +
                         pow(des_pos.x - position_.x, 2))
     err_yaw = normalize_angle(desired_yaw - yaw_)
-    rospy.loginfo(err_yaw)
+    #rospy.loginfo(err_yaw)
 
     if err_pos > dist_precision_:
         twist_msg = Twist()
-        twist_msg.linear.x = 0.3
+        twist_msg.linear.x = 0.5
         if twist_msg.linear.x > ub_d:
             twist_msg.linear.x = ub_d
 
         twist_msg.angular.z = kp_a*err_yaw
-        pub.publish(twist_msg)
+        robot_velocity_command.publish(twist_msg)
     else:
-        print ('Position error: [%s]' % err_pos)
+        #print ('Position error: [%s]' % err_pos)
         change_state(2)
 
     # state change conditions
     if math.fabs(err_yaw) > yaw_precision_:
-        print ('Yaw error: [%s]' % err_yaw)
+        #print ('Yaw error: [%s]' % err_yaw)
         change_state(0)
 
 
@@ -122,7 +123,7 @@ def done():
     twist_msg = Twist()
     twist_msg.linear.x = 0
     twist_msg.angular.z = 0
-    pub.publish(twist_msg)
+    robot_velocity_command.publish(twist_msg)
 
 
 def planning(goal):
@@ -130,15 +131,15 @@ def planning(goal):
     global state_, desired_position_
     global act_s
 
-    desired_position_.x = goal.target_pose.pose.position.x
-    desired_position_.y = goal.target_pose.pose.position.y
+    desired_position_.x = goal.target_pose.position.x
+    desired_position_.y = goal.target_pose.position.y
 
     state_ = 0
     rate = rospy.Rate(20)
     success = True
 
-    feedback = motion_plan.msg.PlanningFeedback()
-    result = motion_plan.msg.PlanningResult()
+    feedback = robot_simulation_messages.msg.PlanningFeedback()
+    result = robot_simulation_messages.msg.PlanningResult()
 
     while not rospy.is_shutdown():
         if act_s.is_preempt_requested():
@@ -172,16 +173,16 @@ def planning(goal):
 
 
 def main():
-    global pub, active_, act_s
+    global robot_velocity_command, active_, act_s
     rospy.init_node('go_to_point')
-    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-    sub_odom = rospy.Subscriber('/odom', Odometry, clbk_odom)
+    robot_velocity_command = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+    sub_odom = rospy.Subscriber('odom', Odometry, clbk_odom)
     act_s = actionlib.SimpleActionServer(
-        '/reaching_goal', motion_plan.msg.PlanningAction, planning, auto_start=False)
+        'reaching_goal', robot_simulation_messages.msg.PlanningAction, planning, auto_start=False)
     act_s.start()
 
     rate = rospy.Rate(20)
-
+    rospy.loginfo("Action Server for controlling the robot is online")
     while not rospy.is_shutdown():
         rate.sleep()
 
