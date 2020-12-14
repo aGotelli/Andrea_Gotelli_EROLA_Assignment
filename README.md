@@ -29,61 +29,112 @@ This file aim to explain how to move inside this project. It should be read befo
 This project contains packages to simulate three behavior for a pet like robot. This simulation is based on a state machine that is implemented using the smach libraries.
 
 # <a name="S-Sofar"></a>Software Architecture
-The package is for simulating a pet like robot which has three possible behaviors. It can move around randomly, it can interact by playing with the user and it can also sleep when tired. The three states are governed using a finite state machine, which defines the transitions from one state to another. For the knowledge representation, two diagrams are implemented.
+The package is for simulating a pet like robot which has three possible behaviors. It can move around randomly, it can playing interacting with a big green ball and it goes in a predetermined position for resting, when tired. The three states are governed using two nested finite state machines, which define the transitions from one state to another. For the knowledge representation, two diagrams are implemented.
 
-* [The State Machine Diagram](#SA-SMD)
+* [The Robot State Machine Diagram](#SA-SSMD)
+* [The Ball State Machine Diagram](#SA-BSMD)
 * [The Component Diagram](#SA-CD)
 
-## <a name="SA-SMD"></a>The State Machine Diagram
-The following figure shows the state machine diagram for this implementation, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
+## <a name="SA-RSMD"></a>The Robot State Machine Diagram
+The following figure shows the state machine diagram for the robot, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
 
-![EROLA_first_assignment_AG](doc/images/state_machine_and_comp_v2.png)
+![EROLA_first_assignment_AG](doc/images/state_machine_and_comp.png)
 
-The figure illustrates the three states for this application, beside some components. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
+The figure illustrates the three main states for this application, beside some components and some other sub states. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
 In particular, all the states will be analyzed in the following.
 
-* [The Move behavior](#SMD-MOVE)
-* [The Rest behavior](#SMD-REST)
-* [The Play behavior](#SMD-PLAY)
+* [The Move behavior](#RSMD-MOVE)
+* [The Rest behavior](#RSMD-REST)
+* [The Play behavior](#RSMD-PLAY)
 
-##### <a name="SMD-MOVE"></a>The Move behavior
+##### <a name="RSMD-MOVE"></a>The Move behavior
 
-The robot starts in the in the Move state, where the robot moves randomly in the environment. While moving, the robot do not perform any other activity. For this reason the movement is implemented using a ROS service, in this way the state machine ignore any information received from the outside until the position is reached. This behavior will last until one of the following happens:
-* The robot reaches the maximum level of fatigue : in this case the state will change to [Rest](#SMD-REST)  with the transition "tired"
-* A person has commanded something : in this case the state will change to [Play](#SMD-PLAY) with the transition "playing"
+The robot starts in the in the Move state, where the robot moves randomly in the environment. While moving, the robot looks for the green ball in the environment. In the case it finds the sphere, it will change to the [Play](#RSMD-PLAY) state with the transition "play". For this reason the movement is implemented using the ROS action service in [move_robot](#HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH), in this way the state machine is able to check the condition of the sphere to be detected. In the case it does not find the ball, it will continue to move around, giving some random goal position to the action service, until it reaches the maximum level of fatigue. In this last case, it changes into the [Rest](#RSMD-REST) state with the "tired" transition.
 
-##### <a name="SMD-REST"></a>The Rest behavior
-The Rest behavior simulates the pet like robot when going to sleep. In fact, every movement that the robot perform increases the level of fatigue in the robot. Once the level of fatigue is above a threshold, the Rest behavior is activated. The transition "tired" is the same in both [Move](#SMD-MOVE) and [Play](#SMD-PLAY). Moreover, the threshold can be set from the launch file.
+##### <a name="RSMD-REST"></a>The Rest behavior
+The Rest behavior simulates the pet like robot when going to sleep. In fact, every movement that the robot perform increases the level of fatigue in the robot. Once the level of fatigue is above a threshold, which can be set from the launch file, the Rest behavior is activated. The transition "tired" is the same in both [Move](#RSMD-MOVE) and [Play](#RSMD-PLAY). In this state, the robot goes to a predefined position and then it waits for some time. For reaching the position it calls the function [move_robot](#HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH) allowing to wait for the result. This will make the robot to ignore the ball. When the time is over, i.e. the robot is rested, the level of fatigue is set to zero and the state changes into [Move](#RSMD-MOVE) with the transition "rested".
 
 ##### <a name="SMD-PLAY"></a>The Play behavior
-When the robot is in the Play behavior, it waits for gesture from the person. When the robot receives a gesture it moves to the pointed location. This behavior will loop for a random number of times, between 1 to 4. As in the [Move](#SMD-MOVE) behavior, the movements are simulated calling the dedicated ROS service.
-Each time the robot moves, the level of fatigue increases. Once it reaches the maximum, the state will change into [Rest](#SMD-REST) with the transition "tired"
+When the robot is in the Play behavior, it enters in another state machine. In fact, the Play behavior is defined by four sub states, which are listed below.
+* [Follow Ball](#RSMD-FB)
+* [Turn Head Counterclockwise](#RSMD-THCCW)
+* [Turn Head Clockwise](#RSMD-THCW)
+* [Set Head Straight](#RSMD-SHS)
+
+###### <a name="RSMD-FB"></a>The Follow Ball state
+In this state, the robot follows the sphere using the twist computed in the callback function PUT HERE THE COMPONENT FOR THE CALLBACK FUNCTION FOR THE IMAGES. Moreover, some instance checking are performed in this state. First, if the ball was reached, than it checks the current robot level of fatigue. In the case the level results equal to the threshold, it changes the state into [Rest](#RSMD-REST) state with the "tired" transition. On the other hand, if the level of fatigue is still under the threshold, it changes the state into [Turn Head Counterclockwise](#RSMD-THCCW) with the transition "turn_head". Finally, if the ball disappears from the robot view and thus is not detected for a certain amount of time, then the robot simply changes its state back to [Move](#RSMD-MOVE) with the transition "stop_play".
+
+###### <a name="RSMD-THCCW"></a>The Turn Head Counterclockwise state
+In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it to its lower limit: -pi/4. Once the neck joint has reached this orientation, it uses the transition "done" to move to the next step: [Turn Head Clockwise](#RSMD-THCW).
+
+###### <a name="RSMD-THCW"></a>The Turn Head Clockwise state
+In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it to its upper limit: pi/4. Once the neck joint has reached this orientation, it uses the transition "done" to move to the next step: [Set Head Straight](#RSMD-SHS)
+###### <a name="RSMD-SHS"></a>The Set Head Straight state
+In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it back to the original orientation, i.e. with the angle equal to 0. Once the neck joint has reached this orientation, it uses the transition "done" to move back to the [Follow Ball](#RSMD-FB) state.
+
+## <a name="SA-BSMD"></a>The Ball State Machine Diagram
+The following figure shows the state machine diagram for the ball behaviors, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
+
+![EROLA_first_assignment_AG](doc/images/ball_state_machine_and_comp.png)
+
+The figure illustrates the two main states for this application, beside some components and some other sub states. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
+In particular, all the states will be analyzed in the following.
+
+* [The Move behavior](#BSMD-MOVE)
+* [The Hide behavior](#BSMD-HIDE)
+
+##### <a name="BSMD-MOVE"></a>The Move behavior
+
+The ball starts in the in the Move state, where it moves randomly in the environment. This state only generates random position and command the ball to reach them with the use of [reachPosition](#CD-RG). It loops in this behavior of a fixed number of time that is used defined in the launch file. After the maximum number of movements have been performed, it uses the transition "hide" to move into the [Hide](#BSMD-HIDE) state.
+
+##### <a name="BSMD-HIDE"></a>The Hide behavior
+In this state, the ball is controlled, again with the use of [reachPosition](#CD-RG), to reach a position under the floor, in order to be hidden from the robot. Once the position has been reached, it waits for some time, randomly generated in an interval before using the transition "move" to change state into [Move](#BSMD-MOVE).
 
 
 
 ## <a name="SA-CD"></a>The Component Diagram
-The following figure shows the components and their relevant parts of this application. Additionally, it also includes a class diagram inside the state machine component. It is important to understand that all the behaviors are simulated through the execution of the memeber function execute() common to all classes.
+The following figure shows the components and their relevant parts of this application. Additionally, it also includes a class diagram inside the state machine components. It is important to understand that all the behaviors are simulated through the execution of the member function execute() common to all classes.
 
-![EROLA_first_assignment_AG](doc/images/component_diagram_v3.png)
+![EROLA_first_assignment_AG](doc/images/component_diagram.png)
 
 The figure shows all the component with their interfaces. In the following, a brief description is given for all of them.
 
-* [The move_service_provider component](#CD-msp)
-* [The person component](#SMD-p)
-* [The state_machine component](#SMD-sm)
+* [The ball_behaviors component](#CD-BB)
+* [The robot_behaviors component](#CD-RB)
+* [The move_ball component](#CD-MB)
+* [The move_robot component](#CD-MR)
+* [The reach_goal component](#CD-RG)
 
 
-##### <a name="CD-msp"></a>The move_service_provider component
-This component is a simple ROS service provider written in C++. It only contains the node initialization and the service server declaration. Its main component is the MoveToGivenPosition that is the service callback. This function is called each time a request is sent to the service. It simply wait for some time before returning true allowing the simulation to continue. The time that the function waits randomly change between 3 and 6 seconds.
+##### <a name="CD-BB"></a>The ball_behaviors component
+The ball_behaviors contains the [Ball State Machine](#SA-BSMD). It has only a few functions. In fact, it is composed mostly by the member functions execute of the state machine.
+
+##### <a name="CD-RB"></a>The robot_behaviors component
+The robot_behaviors node implements the [state machines](#SA-RSMD) used to simulate the robot in this application. Each state of the state machines is implemented in a dedicated class. In other words, each class defines one of the states: [Move](#RSMD-MOVE), [Rest](#RSMD-REST), [Follow Ball](#RSMD-FB), [Turn Head Counterclockwise](#RSMD-THCCW), [Turn Head Clockwise](#RSMD-THCW) and [Set Head Straight](#RSMD-SHS).
+Each of these classes defines its corresponding behavior in the member function execute.
+
+Moreover, it also has some other components which are relevant in the accomplishment of the final goal. The most relevant components are listed below.
+* [imageReceived](#RB-IR)
+* [retrieveNeckAngle](#RB-RNA)
+* [neck_joint_controller](#RB-NJC)
+
+###### <a name="RB-IR"></a>imageReceived
+
+###### <a name="RB-RNA"></a>retrieveNeckAngle
+This ROS subscriber callback simply copy the value of the neck joint angle into a global variable: neck_joint_angle. in this way the states: [Turn Head Counterclockwise](#RSMD-THCCW), [Turn Head Clockwise](#RSMD-THCW) and [Set Head Straight](#RSMD-SHS) can be aware of the current neck joint angle.
+
+###### <a name="RB-NJC"></a>neck_joint_controller
+This ROS Subscriber serves to publish the manipulated neck joint angle: neck_joint_angle_ that is the desired angle computed by the states: [Turn Head Counterclockwise](#RSMD-THCCW), [Turn Head Clockwise](#RSMD-THCW) and [Set Head Straight](#RSMD-SHS).
 
 
-##### <a name="CD-p"></a>The person component
-The person component is a ROS node written in C++. It contains a publisher, a subscriber and a service provider. The subscriber is for retrieve the current state of the [state machine](#CD-sm). The publisher is for publishing the command to the pet like robot. The command is published only if: the state machine is in the [Move](#SMD-MOVE) state and it has passed a specific amount of time from the last call. This time elapsed varies randomly in an interval given by the user, setting the [related parameters](#MSG-P) in the launch file. Finally, the service provider has a callback function represented by the computational component: PointingGesture. This function simply simulate the person pointing a location first by generating a random 2D position, then by waiting some time randomly chosen between 3 and 6 seconds.
+##### <a name="CD-MB"></a>The move_ball component
+The move_ball component is a ROS node which serves as an action service provider. It provides to services on the topic "reaching_goal" which will be available only locally in the group SET A SPECIFIC PART IN ORDER TO TALK ABOUT THE GROUPS IN THIS PROJECT. Once a request is received, it is processed in the action callback "planning". In this callback function, a geometry_msgs/Twist is created taking into account the difference in the position of the ball with respect to the goal position. This message is then sent in the topic "cmd_vel" in order to control the ball ADD THE SECTION FOR THE DESCRIPTION OF THE OBJECT CONTROLLER IN GAZEBO.
 
+##### <a name="CD-MR"></a>The move_robot component
+The move_robot component is a ROS node which serves as an action service provider. It provides to services on the topic "reaching_goal" which will be available only locally in the group SET A SPECIFIC PART IN ORDER TO TALK ABOUT THE GROUPS IN THIS PROJECT. Once a request is received, it is processed in the action callback "planning". In this callback function, first the robot yaw is adjusted in order to point to the goal, and then the robot is controlled to move straight to the target. To control the robot, a geometry_msgs/Twist is sent with the topic "cmd_vel", which will be used by the controller implemented for the robot ADD A SECTION SPECIFICALLY FOR TALKING ABOUT THE ROBOT CNTROLLER AND THE CAMERA!!!!!!!
 
-##### <a name="CD-sm"></a>The state_machine component
-The state machine node is the heart of this simulation. It implements a state machine from the template of smach. The state machine offers three behaviors for the robot: [Move](#SMD-MOVE), [Play](#SMD-PLAY) and [Rest](#SMD-REST). Each behavior is implemented in the homonymous class. The class has only a constructor, where all the members are initialized and a member function execute(). As already discussed, in this last function the features for the corresponding behavior are implemented.
-
+##### <a name="CD-RG"></a>The reach_goal component
+The reach_goal component is a file containing the function reachPosition. This function allow to an easy call to the action service "reaching_goal" provided locally in the group. This function takes only few parameters: the goal that has to be reached and a boolean in order to make, or not, this function blocking; i.e. if wait for the action to succeed or not.
 
 ## <a name="SA-MSG"></a>The Messages and Parameters
 This package has some custom messages, services and parameters which are described in the following.
@@ -169,7 +220,7 @@ Furthermore, some parameters can be defined in the launch file but there are no 
 
 Finally, there is no implementation of the smach_viewer interface. This interface allows a more user friendly interpretation but it is not supported in python3 which is used in Ubuntu 20.04.
 
-Moreover, there is no version control. In other words, this project was developed in Ubuntu 20.04 using python3 and ROS Noetic. Using this package with older versions of ROS and/or python3 could lead to unexpected error. 
+Moreover, there is no version control. In other words, this project was developed in Ubuntu 20.04 using python3 and ROS Noetic. Using this package with older versions of ROS and/or python3 could lead to unexpected error.
 
 
 # <a name="S-PTI"></a>Possible Technical Improvements
