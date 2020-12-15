@@ -31,9 +31,23 @@ This project contains packages to simulate three behavior for a pet like robot. 
 # <a name="S-Sofar"></a>Software Architecture
 The package is for simulating a pet like robot which has three possible behaviors. It can move around randomly, it can playing interacting with a big green ball and it goes in a predetermined position for resting, when tired. The three states are governed using two nested finite state machines, which define the transitions from one state to another. For the knowledge representation, three diagrams are implemented: one for the robot and the ball respectively state machine and one representing all the relevant components of this simulation.
 
+* [The Activity Diagram](#SA-AD)
 * [The Robot State Machine Diagram](#SA-SSMD)
 * [The Ball State Machine Diagram](#SA-BSMD)
 * [The Component Diagram](#SA-CD)
+
+## <a name="SA-AD"></a>The Activity Diagram
+This simple activity diagram is included in this document in order to give a general overview of the application without splitting the focus on components and interfaces.
+
+![EROLA_first_assignment_AG](doc/images/activity_diagram_v2.3.png)
+
+As can be seen in the image above, there are two main elements in this simulation: the robot and the ball.
+
+###### The Robot
+The robot is a pet like robot which starts to move randomly in the environment until its tired, then it goes to sleep. If it detects a ball, then it try to reach it. If it is not tired yet then it turns the head on the left first and then on its right. If the ball is not detected for some time, it starts again to move around randomly. On the other hand, if, while interacting with the ball, it goes to sleep as well.
+
+###### The Ball
+The ball is an element which has only two states: it can move randomly in the environment and it can hide from the robot. It basically moves some times and then it hides, waiting a random amount of time before showing up again.
 
 ## <a name="SA-RSMD"></a>The Robot State Machine Diagram
 The following figure shows the state machine diagram for the robot, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
@@ -150,7 +164,7 @@ The reach_goal component is a file containing the function reachPosition. This f
 This package has an action service message and parameters which are described in the following.
 
 ### <a name="MSG-ASM"></a>The Action Service Message
-The action message Planning.action defines the message used in the service "reaching_goal". It does not offers the feedback feature, but the result, feedback and goal are defined and used in this application. 
+The action message Planning.action defines the message used in the service "reaching_goal". It does not offers the feedback feature, but the result, feedback and goal are defined and used in this application.
 
 ### <a name="MSG-P"></a>The Parameters
 Finally, in this project there are some parameters which can be set from the launch file, allowing the user to easily change them before running the application. The parameters that can be changes are listed below.
