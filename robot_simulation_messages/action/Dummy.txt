@@ -1,0 +1,10 @@
+/*! \file Planning.action
+ *  \brief Action service message file for the reaching_goal action service.
+ *  \param target_pose geometry_msgs/Twist indicating the position to reach
+ *  \param goal geometry_msgs Pose element corresponding to the pointed location
+ */
+
+/*! \file MoveTo.srv
+ *  \brief Service message file for the MoveToPosition service.
+ *  \param goal geometry_msgs Pose element containing the position to reach
+ */
