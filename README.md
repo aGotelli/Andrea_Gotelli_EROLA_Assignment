@@ -169,8 +169,8 @@ The action message Planning.action defines the message used in the service "reac
 ### <a name="MSG-P"></a>The Parameters
 Finally, in this project there are some parameters which can be set from the launch file, allowing the user to easily change them before running the application. The parameters that can be changes are listed below.
 * world_width and world_height: allow to set the dimensions of the discretized 2D world.
-* sleep_x_coord and sleep_y_coord: allow to freely chose the sleeping position i.e. the position where the robot goes when in the [Rest](#SMD-REST) behavior.
-* fatigue_threshold: allow to set how many movement the robot can perform before reaching the [Rest](#SMD-REST) behavior.
+* sleep_x_coord and sleep_y_coord: allow to freely chose the sleeping position i.e. the position where the robot goes when in the [Rest](#RSMD-REST) behavior.
+* fatigue_threshold: allow to set how many movement the robot can perform before reaching the [Rest](#RSMD-REST) behavior.
 
 
 # <a name="S-PFL"></a>Packages and Files List
