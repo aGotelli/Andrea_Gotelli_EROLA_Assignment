@@ -1,3 +1,28 @@
+## @package robot_simulation_state_machines
+#   \file move_ball.py
+#   \brief This file contains the action service provider for moving the ball.
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 15/12/2020
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#       ° odom  The ball odometry
+#
+#   Publishes to: <BR>
+#       ° cmd_vel   The velocity to move the ball
+#       * /gazebo/set_link_state
+#
+#   Service : <BR>
+#       ° reaching_goal Provides the service to move the ball to a desired position
+#
+#   Description :
+#
+#   This file contains the action service provider to move the ball to a desired position.
+#
+
+
 #! /usr/bin/env python
 # import ros stuff
 import rospy
@@ -138,7 +163,7 @@ def planning(goal):
 
 def main():
     global pub, active_, act_s, pubz
-    rospy.init_node('go_to_point')
+    rospy.init_node('move_ball')
     pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
     pubz = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size=1)
     sub_odom = rospy.Subscriber('odom', Odometry, clbk_odom)
@@ -150,7 +175,6 @@ def main():
 
     while not rospy.is_shutdown():
         rate.sleep()
-
 
 if __name__ == '__main__':
     main()

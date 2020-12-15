@@ -32,7 +32,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = "EROLA first assignment"
+PROJECT_NAME           = "EROLA second assignment"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -852,6 +852,7 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = ../robot_simulation_state_machines/scripts \
+                         ../robot_simulation_state_machines/src/robot_simulation_state_machines \
                          ../robot_simulation_messages/action
 
 # This tag can be used to specify the character encoding of the source files

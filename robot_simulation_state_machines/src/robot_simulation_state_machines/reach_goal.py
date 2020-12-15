@@ -1,3 +1,28 @@
+## @package robot_simulation_state_machines
+#   \file reach_goal.py
+#   \brief This file contains the a function allowing to simple call to the action service.
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 22/10/2020
+#
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#       ° [None]
+#
+#   Publishes to: <BR>
+#       ° [None]
+#
+#   Service : <BR>
+#       ° /reaching_goal as client, it asks for reach a specific location.
+#
+#   Description :
+#
+#   This file contains an action service client which calls and eventually waits for the action service
+#   result. This choice was made in order to make this function available in more moduls.
+#
+
 #!/usr/bin/env python3
 # This Python file uses the following encoding: utf-8
 

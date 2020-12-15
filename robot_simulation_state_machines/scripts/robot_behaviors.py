@@ -1,6 +1,6 @@
-## @package state_machine
-#   \file state_machine.py
-#   \brief This file contains the state machine for the high level control of this application.
+## @package robot_simulation_state_machines
+#   \file robot_behaviors.py
+#   \brief This file contains the state machine for the states defining the robot behaviors.
 #   \author Andrea Gotelli
 #   \version 0.2
 #   \date 22/10/2020
@@ -25,12 +25,11 @@
 #
 #   Description :
 #
-#   This file uses smach libraries to generate a state machine, which is used to control the
-#   behaviors of the robot. Specifically, the state machine defines the transition from a state to
-#   another using the interface provided by smach.
-#
-#   This file could be considered the head of the simulation an its more complex and important part.
-#
+#   This file uses smach libraries to generate two state machines, which are used to control the
+#   behaviors of the robot. Specifically, the state machines defines the transition from a state to
+#   another using the interface provided by smach. There is a top level state machine defining two
+#   of the three main robot behaviors. The last behavior is defined by the states of a sub state
+#   machine.
 #   The states are defined in the respective classes, and the transistions are automatically performed
 #   by the state machine from the smach libraries.
 #
@@ -69,47 +68,57 @@ import cv2
 from robot_simulation_state_machines.reach_goal import reachPosition
 from robot_simulation_state_machines.reach_goal import planning_client
 
-
-"""
-
-    PROBLEMS
-        Se la palla passa sopra al robot o veramente a fianco per il robot è come se la avesse raggiunta
-        limita velocita troppo grandi quando appal e lontana
-
-        quando trova la palla di frnt ferma lui sta li e il counter aumenta
-
-        not able to augment the counter even with long distance covered if the motion is not completed
-
-        if some of the neck turning fails then the other ignore the fact and behave normally
-
-        when detecting with the coda dell'occhio parte ma poi la perde
-
-        palla troppo alta causa problemi perche il raggio non si ridurrà mai
-
-        no account robot speed limit
-"""
-
 ##
-#   \brief Define the width of the discretized world. It is a parameter defined by the user.
+#   \brief Define the width of the discretized world.
 width = 0
+
 ##
-#   \brief Define the height of the discretized world. It is a parameter defined by the user.
+#   \brief Define the height of the discretized world.
 height = 0
+
 ##
-#   \brief Is the position where the robot goes to sleep, it is a paremter defined by the user
+#   \brief Is the position where the robot goes to sleep.
 sleep_station = Pose()
+
 ##
 #   \brief Defines the maximum time to wait for seeing a ball before returning into the MOVE state.
 maximum_dead_time = 0
+
 ##
 #   \brief Definition of the position publisher for the robot neck joint
 neck_controller = None
+
 ##
 #   \brief Definition of the frequency for publishing command to the robot neck
 neck_controller_rate = None
+
 ##
 #   \brief Defines the maximum level of fatigue the robot can andle before going to sleep.
 fatigue_threshold = 0
+
+##
+#   \brief  It is a global bolean to access the fact that the ball has been detected by the image processing algorithm,
+ball_detected = False
+
+##
+#   \brief  It is a global boolen to make the state aware of the fact that the robot has reached the ball or not. The information comes from the image processing algorithm
+ball_reached = False
+
+##
+#   \brief  It is a global geometry_msgs/Twist message to be accessed by the states that need to publish this command
+robot_twist = Twist()
+
+##
+#   \brief  Is the amount of time, in second, passed since the last detection of the ball
+time_since = 0.0
+
+##
+#   \brief  Contains information regarding the last timestamp when the ball was detected
+last_detection = 0.0
+
+##
+#   \brief Is a global variable containing the current angle of rotation of the neck_joint
+neck_angle = 0.0
 
 ##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
@@ -128,26 +137,6 @@ def isTired(fatigue_level):
         return False
 
 
-
-
-
-
-##
-#   \brief  It is a global bolean to access the fact that the ball has been detected by the image processing algorithm,
-ball_detected = False
-##
-#   \brief  It is a global boolen to make the state aware of the fact that the robot has reached the ball or not. The
-#   information comes from the image processing algorithm
-ball_reached = False
-##
-#   \brief  It is a global geometry_msgs/Twist message to be accessed by the states that need to publish this command
-robot_twist = Twist()
-##
-#   \brief  Is the amount of time, in second, passed since the last detection of the ball
-time_since = 0.0
-##
-#   \brief  Contains information regarding the last timestamp when the ball was detected
-last_detection = 0.0
 
 ##
 #   \brief  imageReceived   Is the subscriber callback for the images published by the camera. It also performs
@@ -227,9 +216,7 @@ def imageReceived(ros_data):
         robot_twist = Twist()
 
 
-##
-#   \brief Is a global variable containing the current angle of rotation of the neck_joint
-neck_angle = 0.0
+
 
 ##
 #   \brief retrieveNeckAngle is the ros subscriber callback which only saves the current neck_joint rotation angle
@@ -710,3 +697,23 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+
+    """
+
+        PROBLEMS
+            Se la palla passa sopra al robot o veramente a fianco per il robot è come se la avesse raggiunta
+            limita velocita troppo grandi quando appal e lontana
+
+            quando trova la palla di frnt ferma lui sta li e il counter aumenta
+
+            not able to augment the counter even with long distance covered if the motion is not completed
+
+            if some of the neck turning fails then the other ignore the fact and behave normally
+
+            when detecting with the coda dell'occhio parte ma poi la perde
+
+            palla troppo alta causa problemi perche il raggio non si ridurrà mai
+
+            no account robot speed limit
+    """

@@ -1,38 +1,28 @@
-## @package state_machine
-#   \file state_machine.py
-#   \brief This file contains the state machine for the high level control of this application.
+## @package robot_simulation_state_machines
+#   \file ball_behaviors.py
+#   \brief This file contains the state machine for the behaviors of the ball.
 #   \author Andrea Gotelli
 #   \version 0.2
-#   \date 22/10/2020
+#   \date 15/12/2020
 #
 #   \param [in] world_width the width of the discretized world
 #   \param [in] world_height the height of the discretized world
-#   \param [in] sleep_x_coord is the x coordinate of the position where the robot sleeps
-#   \param [in] sleep_y_coord is the y coordinate of the position where the robot sleeps
 #
 #   \details
 #
 #   Subscribes to: <BR>
-#       ° /PlayWithRobot topic where the person publishes the given play command
+#       ° [None]
 #
 #   Publishes to: <BR>
 #       ° [None]
 #
 #   Service : <BR>
-#       ° /Gesture as client, it waits for the gesture to come.
-#
-#       ° /MoveToPosition as cliet, ask to simulate the motion to the given position
+#       ° [None]
 #
 #   Description :
 #
-#   This file uses smach libraries to generate a state machine, which is used to control the
-#   behaviors of the robot. Specifically, the state machine defines the transition from a state to
-#   another using the interface provided by smach.
-#
-#   This file could be considered the head of the simulation an its more complex and important part.
-#
-#   The states are defined in the respective classes, and the transistions are automatically performed
-#   by the state machine from the smach libraries.
+#   This file contains the state machine used to implement the behaviors of the ball.
+#   This simple state machine as only two states, which are defined in the homonym class
 #
 
 #!/usr/bin/env python3
@@ -245,40 +235,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-
-
-"""
-##
-#   \brief Creates the SimpleActionClient, passing the type of the action (PlanningAction) to the constructor.
-#
-#   It is defined as global in order to be used with a global function
-planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
-
-##
-#   \brief reachPosition Is a global function which calls the appropriate action service
-#   \param pose Is the pose to reach
-#   \param wait default False, if true makes the function blocking by calling the action server
-#                memeber function wait_for_result()
-#   \param verbose default False, if true it make the function to print some logs
-#                   about the position to reach
-#
-#   This function serves as a compact way to call the action service. It waits for the service
-#   to exist, it gives the position to be reached and it may waits for the results, depending
-#   on the boolean state of the relative parameter.
-def reachPosition(pose, wait=False, verbose=False):
-    global planning_client
-    if verbose :
-        #   Print a log of the given postion
-        print("Ball is reaching position: ", pose.position.x , ", ", pose.position.y)
-    #   Waits until the action server has started up and started
-    #   listening for goals.
-    planning_client.wait_for_server()
-    #   Creates a goal to send to the action server.
-    goal = robot_simulation_messages.msg.PlanningGoal(pose)
-    #   Sends the goal to the action server.
-    planning_client.send_goal(goal)
-    #   Waits for the server to finish performing the action.
-    if wait:
-        planning_client.wait_for_result()
-"""

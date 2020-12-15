@@ -1,3 +1,29 @@
+## @package robot_simulation_state_machines
+#   \file move_robot.py
+#   \brief This file contains the action service provider for moving the robot.
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 15/12/2020
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#       ° odom  The robot odometry
+#
+#   Publishes to: <BR>
+#       ° cmd_vel   The velocity to move the robot
+#       * /gazebo/set_link_state
+#
+#   Service : <BR>
+#       ° reaching_goal Provides the service to move the robot to a desired position
+#
+#   Description :
+#
+#   This file contains the action service provider to move the robot to a desired position.
+#
+
+
+
 #! /usr/bin/env python3
 # import ros stuff
 import rospy
@@ -174,7 +200,7 @@ def planning(goal):
 
 def main():
     global robot_velocity_command, active_, act_s
-    rospy.init_node('go_to_point')
+    rospy.init_node('move_robot')
     robot_velocity_command = rospy.Publisher('cmd_vel', Twist, queue_size=1)
     sub_odom = rospy.Subscriber('odom', Odometry, clbk_odom)
     act_s = actionlib.SimpleActionServer(
