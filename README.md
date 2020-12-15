@@ -38,7 +38,7 @@ The package is for simulating a pet like robot which has three possible behavior
 ## <a name="SA-RSMD"></a>The Robot State Machine Diagram
 The following figure shows the state machine diagram for the robot, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
 
-![EROLA_first_assignment_AG](doc/images/state_machine_and_comp.png)
+![EROLA_first_assignment_AG](doc/images/state_machine_and_comp_v2.png)
 
 The figure illustrates the three main states for this application, beside some components and some other sub states. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
 In particular, all the states will be analyzed in the following.
@@ -49,7 +49,10 @@ In particular, all the states will be analyzed in the following.
 
 ##### <a name="RSMD-MOVE"></a>The Move behavior
 
-The robot starts in the in the Move state, where the robot moves randomly in the environment. While moving, the robot looks for the green ball in the environment. In the case it finds the sphere, it will change to the [Play](#RSMD-PLAY) state with the transition "play". For this reason the movement is implemented with a non blocking call of the ROS action service in the [reach_goal](#CD-RG) component, in this way, while the robot is moving, the state machine is able to check the condition of the sphere to be detected. In the case it does not find the ball, it will continue to move around, giving some random goal position to the action service, until it reaches the maximum level of fatigue. In this last case, it changes into the [Rest](#RSMD-REST) state with the "tired" transition.
+The robot starts in the in the Move state, where the robot moves randomly in the environment. While moving, the robot looks for the green ball in the environment. In the case it finds the sphere, it will change to the [Play](#RSMD-PLAY) state with the transition "play". For this reason the movement is implemented with a non blocking call of the ROS action service in the [reach_goal](#CD-RG) component, in this way, while the robot is moving, the state machine is able to check the condition of the sphere to be detected. It also has direct access to the provided interfaces in the [action service](#MSG-ASM). Using the action service client, it access directly to the functionalities cancel_all_goals() and get_result(). The first one is needed to stop the robot when the ball is detected. The second is needed to check whether or not the robot has reached the desired position, so another target position can be sent.
+In fact, in the case it does not find the ball, it will continue to move around, giving some random goal position to the action service, until it reaches the maximum level of fatigue. In this last case, it changes into the [Rest](#RSMD-REST) state with the "tired" transition.
+
+
 
 ##### <a name="RSMD-REST"></a>The Rest behavior
 The Rest behavior simulates the pet like robot when going to sleep. In fact, every movement that the robot perform increases the level of fatigue in the robot. Once the level of fatigue is above a threshold, which can be set from the launch file, the Rest behavior is activated. The transition "tired" is the same in both [Move](#RSMD-MOVE) and [Play](#RSMD-PLAY). In this state, the robot goes to a predefined position and then it waits for some time. For reaching the position it calls the function in the [reach_goal](#CD-RG) specifying the execution in the blocking. This will make the robot to ignore the ball that could appear in the camera field of view. When the time is over, i.e. the robot is rested, the level of fatigue is set to zero and the state changes into [Move](#RSMD-MOVE) with the transition "rested".
@@ -76,7 +79,7 @@ In this state, the robot takes the current value for the neck joint angle, and c
 ## <a name="SA-BSMD"></a>The Ball State Machine Diagram
 The following figure shows the state machine diagram for the ball behaviors, as well as some knowledge about which interfaces each state has with respect to the rest of the architecture.
 
-![EROLA_first_assignment_AG](doc/images/ball_state_machine_and_comp.png)
+![EROLA_first_assignment_AG](doc/images/ball_state_machine_and_comp_v2.png)
 
 The figure illustrates the two states for the ball in this application, and as well some components. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
 In particular, the two states will be analyzed in the following.
@@ -96,7 +99,7 @@ In this state, the ball is controlled, again with the use of function in [reach_
 ## <a name="SA-CD"></a>The Component Diagram
 The following figure shows the components and their relevant parts of this application. Additionally, it also includes a class diagram inside the state machine components. In fact, it is important to understand that all the behaviors are simulated through the execution of the member function execute() common to all classes.
 
-![EROLA_first_assignment_AG](doc/images/component_diagram.png)
+![EROLA_first_assignment_AG](doc/images/component_diagram_v2.png)
 
 The figure shows all the component with their interfaces. In the following, a brief description is given for all of them.
 
@@ -146,10 +149,8 @@ The reach_goal component is a file containing the function reachPosition. This f
 ## <a name="SA-MSG"></a>The Messages and Parameters
 This package has an action service message and parameters which are described in the following.
 
-
-
-### <a name="MSG-SRV"></a>The Action Service Message
-The action message Planning.action defines the parameters needed by the service
+### <a name="MSG-ASM"></a>The Action Service Message
+The action message Planning.action defines the message used in the service "reaching_goal". It does not offers the feedback feature, but the result, feedback and goal are defined and used in this application. 
 
 ### <a name="MSG-P"></a>The Parameters
 Finally, in this project there are some parameters which can be set from the launch file, allowing the user to easily change them before running the application. The parameters that can be changes are listed below.
