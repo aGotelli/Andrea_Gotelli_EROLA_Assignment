@@ -696,24 +696,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-    """
-
-        PROBLEMS
-            Se la palla passa sopra al robot o veramente a fianco per il robot è come se la avesse raggiunta
-            limita velocita troppo grandi quando appal e lontana
-
-            quando trova la palla di frnt ferma lui sta li e il counter aumenta
-
-            not able to augment the counter even with long distance covered if the motion is not completed
-
-            if some of the neck turning fails then the other ignore the fact and behave normally
-
-            when detecting with the coda dell'occhio parte ma poi la perde
-
-            palla troppo alta causa problemi perche il raggio non si ridurrà mai
-
-            no account robot speed limit
-    """
