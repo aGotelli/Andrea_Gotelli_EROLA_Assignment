@@ -225,23 +225,33 @@ in the doc folder. If you have not doxygen installed, [here](https://www.doxygen
 The pet like robot is simulated in a world consisting in a square arena without obstacles inside. This simulations takes into account the robot dynamics and frictions components. In other words, this simulation is aware of the mass of each of the robot component, as well as inertia and joints friction. As a result, the robot simulates a more consistent and close to reality motions.
 
 # <a name="S-SF"></a>System’s features
-The application allows the user to simulate the architecture to be implemented. It allows they to change important settings in order to test in different scenarios. The user can choose parameters like: the range where is randomly selected the time to wait between two calls of play, where the robot go when sleeping and the world dimensions.
-The system is capable to keep track of the received command even when performing motion and waiting to the gesture. In fact, with the use of the standard queue for the ROS subscriber, all the topic received will be stored and processed later.
+This application simulated the robot real dynamics using a physical simulator.
 
-Moreover, the node responsible to simulate the person has some insight about the robot. In fact, it subscribes to the topic used to the state machine to publish the current state. In this way, it was possible to ensure that the command is published only if the robot is in the [Move](#SMD-MOVE).
+
+ADD THIS SECTION!!!!
+
+
 
 # <a name="S-SF"></a>System’s limitations
-Furthermore, some parameters can be defined in the launch file but there are no tools to check the user's settings. Usually, when there some possibility for the user to chose parameters, there should be implemented an error handling section in order to prevent the user to set inconsistent parameters.
+In this paragraph there is a list of the system limitation.
 
-Finally, there is no implementation of the smach_viewer interface. This interface allows a more user friendly interpretation but it is not supported in python3 which is used in Ubuntu 20.04.
+ * Some parameters can be defined in the launch file but there are no tools to check the user's   settings. Usually, when there some possibility for the user to chose parameters, there should be implemented an error handling section in order to prevent the user to set inconsistent parameters.
 
-Moreover, there is no version control. In other words, this project was developed in Ubuntu 20.04 using python3 and ROS Noetic. Using this package with older versions of ROS and/or python3 could lead to unexpected error.
+ * There is no implementation of the smach_viewer interface. This interface allows a more user friendly interpretation but it is not supported in python3 which is used in Ubuntu 20.04.
 
-It is not possible to set full posture as a target goal. In other words, the target is defined by a position, disregarding the orientation. As a result, the robot fill reach the target with an orientation that depends on the robot position when it received the target position.
+ * There is no version control. In other words, this project was developed in Ubuntu 20.04 using python3 and ROS Noetic. Using this package with older versions of ROS and/or python3 could lead to unexpected error.
 
-When the robot_twist is computed, the function does not take into account any limitation in the speed. Moreover, it does not take into account any effect of this twist, if the robot model is not well balanced and the ball is detected far from the robot, it could surge with the risk of fall aside.  
+ * It is not possible to set full posture as a target goal. In other words, the target is defined by a position, disregarding the orientation. As a result, the robot fill reach the target with an orientation that depends on the robot position when it received the target position.
 
-The ball is assumed to be reached evaluating the radius of the circle computed around it during the image processing. This works just fine if the ball moves away from the robot which tries to follow it. However, if the ball appears close in front of the robot or while moving it passes over it or very close, then the system assumes that the ball has been reached by the robot even if the ball is actually moving away from the robot.
+ * When the robot_twist is computed, the function does not take into account any limitation in the speed. Moreover, it does not take into account any effect of this twist, if the robot model is not well balanced and the ball is detected far from the robot, it could surge with the risk of fall aside.  
+
+ * The ball is assumed to be reached evaluating the radius of the circle computed around it during the image processing. This works just fine if the ball moves away from the robot which tries to follow it. However, if the ball appears close in front of the robot or while moving it passes over it or very close, then the system assumes that the ball has been reached by the robot even if the ball is actually moving away from the robot.
+
+ * If the balls stands right in front of the robot without moving at all, then the system is not able to detect the ball failure. As a result, the robot will go close to the ball and recursively iterates all the states defining the Play behavior until tired. Once it will wake up, the robot is likely to find again the ball and do again what previously explained.
+
+ * The system cannot account the distance covered by the robot but only the accomplishment of a motion. Meaning that, even if the robot covers a long distance for example while randomly, if the motion is interrupted by the detection of the ball, then it changes the state but it will increase the fatigue counter only after having reached the ball. In other words, all the long motion that was doing is disregarded.
+
+ * If the ball is placed to high in the environment the robot will not be able to complete any attempt to reach the ball. In fact, if the ball is to high than the radius might not satisfy the condition to consider the ball as reached. As a result, the robot will not exit the state Follow Ball until the ball hides. Moreover, it could also happen that if the ball is too high, it goes out of the camera field of view while the robot tries to approach it.
 
 # <a name="S-PTI"></a>Possible Technical Improvements
 This project was developed with the aim of being possible to implement, improve and change features during the time. Some further work which could improve the performance of the application could be the following.
