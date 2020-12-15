@@ -66,6 +66,9 @@ import imutils
 # OpenCV
 import cv2
 
+from robot_simulation_state_machines.reach_goal import reachPosition
+from robot_simulation_state_machines.reach_goal import planning_client
+
 
 """
 
@@ -85,8 +88,6 @@ import cv2
 
         no account robot speed limit
 """
-
-
 
 ##
 #   \brief Define the width of the discretized world. It is a parameter defined by the user.
@@ -126,24 +127,7 @@ def isTired(fatigue_level):
     else :
         return False
 
-##
-#   \brief Creates the SimpleActionClient, passing the type of the action (PlanningAction) to the constructor.
-planning_client = None
-def reachPosition(pose, wait=False, verbose=False):
-    global planning_client
-    if verbose :
-        #   Print a log of the given postion
-        print("Robot is reaching position: ", pose.position.x , ", ", pose.position.y)
-    #   Waits until the action server has started up and started
-    #   listening for goals.
-    planning_client.wait_for_server()
-    #   Creates a goal to send to the action server.
-    goal = robot_simulation_messages.msg.PlanningGoal(pose)
-    #   Sends the goal to the action server.
-    planning_client.send_goal(goal)
-    #   Waits for the server to finish performing the action.
-    if wait:
-        planning_client.wait_for_result()
+
 
 
 
@@ -615,7 +599,7 @@ def main():
     global maximum_dead_time
     global neck_controller
     global neck_controller_rate
-    global planning_client
+    #global planning_client
 
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
@@ -645,7 +629,7 @@ def main():
                                                 JointControllerState, retrieveNeckAngle,  queue_size=1)
 
     #   Definition of the client for the action service which moves the robot
-    planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
+    #planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
 
     #   Retrieve the parameter about the world dimensions
     width = rospy.get_param('/world_width', 20)
@@ -725,3 +709,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

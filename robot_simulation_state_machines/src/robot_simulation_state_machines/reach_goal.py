@@ -37,7 +37,7 @@ def reachPosition(pose, wait=False, verbose=False):
     global planning_client
     if verbose :
         #   Print a log of the given postion
-        print("Ball is reaching position: ", pose.position.x , ", ", pose.position.y)
+        print("Reaching position: ", pose.position.x , ", ", pose.position.y)
     #   Waits until the action server has started up and started
     #   listening for goals.
     planning_client.wait_for_server()

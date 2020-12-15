@@ -61,7 +61,7 @@ import robot_simulation_messages.msg
 # numpy and scipy
 import numpy as np
 
-#from reach_goal import reachPosition
+from robot_simulation_state_machines.reach_goal import reachPosition
 
 
 
@@ -82,40 +82,6 @@ height = 0
 #
 #   It is a parameter that the user may change with the use of the correct ROS parameter.
 number_of_movements = 0
-
-
-##
-#   \brief Creates the SimpleActionClient, passing the type of the action (PlanningAction) to the constructor.
-#
-#   It is defined as global in order to be used with a global function
-planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
-
-##
-#   \brief reachPosition Is a global function which calls the appropriate action service
-#   \param pose Is the pose to reach
-#   \param wait default False, if true makes the function blocking by calling the action server
-#                memeber function wait_for_result()
-#   \param verbose default False, if true it make the function to print some logs
-#                   about the position to reach
-#
-#   This function serves as a compact way to call the action service. It waits for the service
-#   to exist, it gives the position to be reached and it may waits for the results, depending
-#   on the boolean state of the relative parameter.
-def reachPosition(pose, wait=False, verbose=False):
-    global planning_client
-    if verbose :
-        #   Print a log of the given postion
-        print("Ball is reaching position: ", pose.position.x , ", ", pose.position.y)
-    #   Waits until the action server has started up and started
-    #   listening for goals.
-    planning_client.wait_for_server()
-    #   Creates a goal to send to the action server.
-    goal = robot_simulation_messages.msg.PlanningGoal(pose)
-    #   Sends the goal to the action server.
-    planning_client.send_goal(goal)
-    #   Waits for the server to finish performing the action.
-    if wait:
-        planning_client.wait_for_result()
 
 
 ##
@@ -237,11 +203,13 @@ def main():
     global width
     global height
     global number_of_movements
+
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
 
     #   Sleep for waiting the end of all the Initialization logs
-    waitForRandTime(30, 40)
+    #waitForRandTime(30, 40)
+    waitForRandTime(2, 3)
     print("Starting to move the ball")
     random.seed()
 
@@ -277,3 +245,40 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+
+
+"""
+##
+#   \brief Creates the SimpleActionClient, passing the type of the action (PlanningAction) to the constructor.
+#
+#   It is defined as global in order to be used with a global function
+planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
+
+##
+#   \brief reachPosition Is a global function which calls the appropriate action service
+#   \param pose Is the pose to reach
+#   \param wait default False, if true makes the function blocking by calling the action server
+#                memeber function wait_for_result()
+#   \param verbose default False, if true it make the function to print some logs
+#                   about the position to reach
+#
+#   This function serves as a compact way to call the action service. It waits for the service
+#   to exist, it gives the position to be reached and it may waits for the results, depending
+#   on the boolean state of the relative parameter.
+def reachPosition(pose, wait=False, verbose=False):
+    global planning_client
+    if verbose :
+        #   Print a log of the given postion
+        print("Ball is reaching position: ", pose.position.x , ", ", pose.position.y)
+    #   Waits until the action server has started up and started
+    #   listening for goals.
+    planning_client.wait_for_server()
+    #   Creates a goal to send to the action server.
+    goal = robot_simulation_messages.msg.PlanningGoal(pose)
+    #   Sends the goal to the action server.
+    planning_client.send_goal(goal)
+    #   Waits for the server to finish performing the action.
+    if wait:
+        planning_client.wait_for_result()
+"""
