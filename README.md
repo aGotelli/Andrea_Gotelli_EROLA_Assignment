@@ -26,10 +26,10 @@ This file aim to explain how to move inside this project. It should be read befo
 
 
 # <a name="S-Introduction"></a>Introduction
-This project contains packages to simulate three behavior for a pet like robot. The pet like robot will move in an obstacles free arena, interacting with a ball which from time to time appears in the environment. The robot will show some different behaviors which are implemented as a states of a state machine that is implemented using the smach libraries.
+This project contains packages to simulate three behaviors for a pet like robot. The pet like robot will move in an obstacles free arena, interacting with a ball which from time to time appears in the environment.
 
 # <a name="S-Sofar"></a>Software Architecture
-The package is for simulating a pet like robot which has three possible behaviors. It can move around randomly, it can playing interacting with a big green ball and it goes in a predetermined position for resting, when tired. The three states are governed using two nested finite state machines, which define the transitions from one state to another. For the knowledge representation, three diagrams are implemented: one for the robot and the ball respectively state machine and one representing all the relevant components of this simulation.
+The three robot behaviors are described by the following states: it can move around randomly, it can playing interacting with a big green ball and it goes in a predetermined position for resting, when tired. The three states are governed using two nested finite state machines, which define the transitions from one state to another. For the knowledge representation, three diagrams are implemented: one for the robot and the ball respectively state machine and one representing all the relevant components of this simulation.
 
 * [The Activity Diagram](#SA-AD)
 * [The Robot State Machine Diagram](#SA-SSMD)
@@ -39,12 +39,12 @@ The package is for simulating a pet like robot which has three possible behavior
 ## <a name="SA-AD"></a>The Activity Diagram
 This simple activity diagram is included in this document in order to give a general overview of the application without splitting the focus on components and interfaces.
 
-![EROLA_first_assignment_AG](doc/images/activity_diagram_v3.png)
+![EROLA_first_assignment_AG](doc/images/activity_diagram_v3.1.png)
 
 As can be seen in the image above, there are two main elements in this simulation: the robot and the ball.
 
 ###### The Robot
-The robot is a pet like robot which starts to move randomly in the environment until its tired, then it goes to sleep. If it detects a ball, then it try to reach it. If it is not tired yet then it turns the head on the left first and then on its right. If the ball is not detected for some time, it starts again to move around randomly. On the other hand, if, while interacting with the ball, it goes to sleep as well.
+The robot is a pet like robot which starts to move randomly in the environment until its tired, then it goes to sleep. If it detects a ball, then it try to reach it. If it is not tired yet then it turns the head on the left first and then on its right. If the ball is not detected for some time, it starts again to move around randomly. On the other hand, if the ball is detected the robot interacts with it. While interacting with the ball, if the robot gets tired, it goes to sleep.
 
 ###### The Ball
 The ball is an element which has only two states: it can move randomly in the environment and it can hide from the robot. It basically moves some times and then it hides, waiting a random amount of time before showing up again.
@@ -52,7 +52,7 @@ The ball is an element which has only two states: it can move randomly in the en
 ## <a name="SA-RSMD"></a>The Robot State Machine Diagram
 The following figure shows the state machine diagram for the robot, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
 
-![EROLA_first_assignment_AG](doc/images/state_machine_and_comp_v2.png)
+![EROLA_first_assignment_AG](doc/images/state_machine_and_comp_v3.1.png)
 
 The figure illustrates the three main states for this application, beside some components and some other sub states. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
 In particular, all the states will be analyzed in the following.
@@ -113,7 +113,7 @@ In this state, the ball is controlled, again with the use of function in [reach_
 ## <a name="SA-CD"></a>The Component Diagram
 The following figure shows the components and their relevant parts of this application. Additionally, it also includes a class diagram inside the state machine components. In fact, it is important to understand that all the behaviors are simulated through the execution of the member function execute() common to all classes.
 
-![EROLA_first_assignment_AG](doc/images/component_diagram_v2.png)
+![EROLA_first_assignment_AG](doc/images/component_diagram_v3.1.png)
 
 The figure shows all the component with their interfaces. In the following, a brief description is given for all of them.
 
