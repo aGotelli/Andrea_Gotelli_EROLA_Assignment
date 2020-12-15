@@ -39,7 +39,7 @@ The package is for simulating a pet like robot which has three possible behavior
 ## <a name="SA-AD"></a>The Activity Diagram
 This simple activity diagram is included in this document in order to give a general overview of the application without splitting the focus on components and interfaces.
 
-![EROLA_first_assignment_AG](doc/images/activity_diagram_v2.3.png)
+![EROLA_first_assignment_AG](doc/images/activity_diagram_v3.png)
 
 As can be seen in the image above, there are two main elements in this simulation: the robot and the ball.
 
