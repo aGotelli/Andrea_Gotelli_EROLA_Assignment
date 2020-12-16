@@ -215,6 +215,9 @@ def imageReceived(ros_data):
         ball_detected = False
         robot_twist = Twist()
 
+    cv2.imshow('window', image_np)
+    cv2.waitKey(2)
+
 
 
 
