@@ -222,15 +222,10 @@ In order to generate the documentation, the is a Doxyfile in the doc folder. You
 in the doc folder. If you have not doxygen installed, [here](https://www.doxygen.nl/index.html) you can find Installation procedure and commands.
 
 # <a name="S-WH"></a>Working Hypothesis and Environment
-The pet like robot is simulated in a world consisting in a square arena without obstacles inside. This simulations takes into account the robot dynamics and frictions components. In other words, this simulation is aware of the mass of each of the robot component, as well as inertia and joints friction. As a result, the robot simulates a more consistent and close to reality motions.
+The pet like robot is simulated in a world consisting in a square arena without obstacles inside. This simulations takes into account the robot dynamics and frictions components. In other words, this simulation is aware of the mass of each of the robot component, as well as inertia and joints friction. As a result, the robot simulates a more consistent and close to reality motions. The ball is simulated to be collision less. As a result, it can be hidden below the floor and it does not collide with the robot if it accidentally passes over or across it.
 
 # <a name="S-SF"></a>System’s features
-This application simulated the robot real dynamics using a physical simulator.
-
-
-ADD THIS SECTION!!!!
-
-
+This application simulated the robot real dynamics using a physical simulator. The robot is able to stop as soon as it sees the ball in order to change the motion and move toward it. On the other hand, when the robot is reaching the position for sleeping, it completely ignore the ball in the eventuality that it comes in the robot field of view. This is made possible by the action service. In fact, it allows to create a non blocking and a blocking request of reaching the position, allowing to process, or disregard, eventual changes in the simulation.  
 
 # <a name="S-SF"></a>System’s limitations
 In this paragraph there is a list of the system limitation.
@@ -256,6 +251,7 @@ In this paragraph there is a list of the system limitation.
 # <a name="S-PTI"></a>Possible Technical Improvements
 This project was developed with the aim of being possible to implement, improve and change features during the time. Some further work which could improve the performance of the application could be the following.
 * Add a condition to assume that the ball has been reached based on the ball velocity. If the radius meet the required value and the ball results not moving then it is assumed to be reached.
+* The ball could subscribe to the robot odometry in order to appear only in front of it and moving in its field of view.
 * Add an error handling section in order to prevent the user to input inconsistent data.
 * Introduce the possibility for the user to interact directly with the application, for example through the keyboard.
 * Add the smach_viewer interface once solved the problem of integration or when the package itself is ported in python3.
