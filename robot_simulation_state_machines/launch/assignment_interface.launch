@@ -18,12 +18,19 @@
     <!-- Parameter to define how many time the ball should move -->
     <param name="/number_of_movements"      value="5" />
 
+    <!-- Parameter to define how much time the ball will stay in the reached position -->
+    <param name="/wait_in_position"      value="7" />
+
     <!-- Parameter to define the robot maximul level of efforts before going to sleep -->
     <param name="/fatigue_threshold" value="5" />
 
     <!-- Parameter to define the robot maximul time to wait in the Play behavior without
          seeing the Ball                                                                 -->
-    <param name="/maximum_dead_time" value="5" />
+    <param name="/maximum_dead_time" value="10" />
+
+    <!-- Parameter to define the robot maximul linear velocity (safety reason) -->
+    <param name="/max_speed" value="0.6" />
+
 
     <!-- Include the launch file for the Gazebo setup -->
     <include file="$(find robot_simulation_state_machines)/launch/gazebo_world.launch" >

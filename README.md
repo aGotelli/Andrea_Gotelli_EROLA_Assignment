@@ -82,10 +82,10 @@ When the robot is in the Play behavior, it enters in another state machine. In f
 In this state, the robot follows the sphere using the twist computed in the callback function [imageReceived](#RB-IR). Moreover, some instance checking are performed in this state. First, if the ball was reached, than it checks the current robot level of fatigue. In the case the level results equal to the threshold, it changes the state into [Rest](#RSMD-REST) state with the "tired" transition. On the other hand, if the level of fatigue is still under the threshold, it changes the state into [Turn Head Counterclockwise](#RSMD-THCCW) with the transition "turn_head". Finally, if the ball disappears from the robot view and thus is not detected for a certain amount of time, then the robot simply changes its state back to [Move](#RSMD-MOVE) with the transition "stop_play".
 
 ###### <a name="RSMD-THCCW"></a>The Turn Head Counterclockwise state
-In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it to its lower limit: -pi/4. Once the neck joint has reached this orientation, it uses the transition "done" to move to the next step: [Turn Head Clockwise](#RSMD-THCW).
+In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it to its lower limit: -pi/4. Once the neck joint has reached this orientation it waits for one second and then it uses the transition "done" to move to the next step: [Turn Head Clockwise](#RSMD-THCW).
 
 ###### <a name="RSMD-THCW"></a>The Turn Head Clockwise state
-In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it to its upper limit: pi/4. Once the neck joint has reached this orientation, it uses the transition "done" to move to the next step: [Set Head Straight](#RSMD-SHS)
+In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it to its upper limit: pi/4. Once the neck joint has reached this orientation it waits for one second and then it uses the transition "done" to move to the next step: [Set Head Straight](#RSMD-SHS)
 
 ###### <a name="RSMD-SHS"></a>The Set Head Straight state
 In this state, the robot takes the current value for the neck joint angle, and controls the neck in order to set it back to the original orientation, i.e. with the angle equal to 0. Once the neck joint has reached this orientation, it uses the transition "done" to move back to the [Follow Ball](#RSMD-FB) state.
@@ -103,10 +103,10 @@ In particular, the two states will be analyzed in the following.
 
 ##### <a name="BSMD-MOVE"></a>The Move behavior
 
-The ball starts in the in the Move state, where it moves randomly in the environment. This state only generates random position and command the ball to reach them with the use provided function in [reach_goal](#CD-RG). It loops in this behavior of a fixed number of times. This number is user defined in the launch file. After the maximum number of movements have been performed, it uses the transition "hide" to move into the [Hide](#BSMD-HIDE) state.
+The ball starts in the in the Move state, where it moves randomly in the environment. This state only generates random position and command the ball to reach them with the use provided function in [reach_goal](#CD-RG). Once it reaches the position it waits for some time, indicated by the appropriate parameter [wait_in_position](#MSG-P) It loops in this behavior of a fixed number of times. This number is user defined in the launch file. After the maximum number of movements have been performed, it uses the transition "hide" to move into the [Hide](#BSMD-HIDE) state.
 
 ##### <a name="BSMD-HIDE"></a>The Hide behavior
-In this state, the ball is controlled, again with the use of function in [reach_goal](#CD-RG), to reach a position under the floor. This will hide the ball from the robot camera field of view. Once the position has been reached, it waits for some time, randomly generated in an interval before using the transition "move" to change state into [Move](#BSMD-MOVE).
+In this state, the ball is controlled, again with the use of function in [reach_goal](#CD-RG), to reach a position under the floor. This will hide the ball from the robot camera field of view. Once the position has been reached, it waits for some time, randomly generated in an interval, indicated by the appropriate parameters : [minimum_time_in_hide and maximum_time_in_hide](#MSG-P), before using the transition "move" to change state into [Move](#BSMD-MOVE).
 
 
 
@@ -173,7 +173,8 @@ Finally, in this project there are some parameters which can be set from the lau
 * fatigue_threshold: allow to set how many movement the robot can perform before reaching the [Rest](#RSMD-REST) behavior.
 * minimum_time_onstart and maximum_time_onstart: set the range of time to wait before starting to [move the ball](#BSMD-MOVE).
 * minimum_time_in_hide and maximum_time_in_hide: set the range of time the ball will wait while [hiding](#BSMD-HIDE).
-* number_of_movements: defines how many times the ball reaches a new random position in its [Move](#BSMD-MOVE) stat.
+* number_of_movements: defines how many times the ball reaches a new random position in its [Move](#BSMD-MOVE) state.
+* wait_in_position: defines the amount of time the ball waits, on the reached position in the [Move](#BSMD-MOVE) state, before moving again.
 * maximum_dead_time: allow to set how much time the robot will wait in the [Play](#RSMD-PLAY), without seeing the ball, before switching to [Move](#RSMD-MOVE).
 
 # <a name="S-PFL"></a>Packages and Files List

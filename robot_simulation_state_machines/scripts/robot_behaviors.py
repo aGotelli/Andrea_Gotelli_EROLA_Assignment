@@ -121,6 +121,10 @@ last_detection = 0.0
 neck_angle = 0.0
 
 ##
+#   \brief Is the maximum linear velocity included for safe navigation.
+max_speed = 0
+
+##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
 #    \param level [integer] is the current level of fatigue of the robot.
 #    \return a boolen. True if the robot is "tired" false elsewhere.
@@ -151,7 +155,9 @@ def isTired(fatigue_level):
 #   Based on the value of the radius, the function determines either if the robot has reached the
 #   ball or if it should move closer to it. In this last case, it computes a geometry_msgs/Twist message
 #   containing an adjustement of the heading, for having the ball centered in the image, and a linear
-#   velocity to move the robot closer to the ball. It also changes the value or the gobal boolean
+#   velocity to move the robot closer to the ball. In the computation of the linear velocity, it limits the
+#   maximum value in order to avoid dangerous soaring.
+#   It also changes the value or the gobal boolean
 #   ball_detected to True.
 #   On the other hand,if the radius is equal or bigger than a given threshold, it assumes that the robot
 #   has reached the ball and it sets the corresponding variable ball_reached to True.
@@ -166,6 +172,9 @@ def imageReceived(ros_data):
     global time_since
     global last_detection
     global sleepy_robot
+    global max_speed
+
+    #   Update last detection timestamp
     time_since = rospy.Time.now().to_sec() - last_detection
     #if not sleepy_robot :
     #### direct conversion to CV2 ####
@@ -201,6 +210,9 @@ def imageReceived(ros_data):
             robot_twist = Twist()
             robot_twist.angular.z = 0.005*(center[0]-400)
             robot_twist.linear.x = 0.02*(110-radius)
+            #   Limit the robot maximum linear velocity
+            if robot_twist.linear.x > max_speed :
+                robot_twist.linear.x = max_speed
             ball_detected = True
             #   Reset time of last detection
             last_detection = rospy.Time.now().to_sec()
@@ -290,7 +302,6 @@ class Move(smach.State):
                 #   Stop the robot right there
                 planning_client.cancel_all_goals()
                 #   Return 'plying' to change the state
-                ball_detected = False
                 return 'playing'
             else :
                 #   If none of the previous was true, then continue with the Move behavior
@@ -425,7 +436,7 @@ class FollowBall(smach.State):
                 return 'turn_head'
         #   Stop play if the robot does not see ball for 5 sec or more
         print("Dead time : ", int(time_since), " [s]")
-        #   Ensure no bud from previous detection
+        #   Ensure no bugs from previous detection
         ball_reached = False
         ball_detected = False
         return 'stop_play'
@@ -474,6 +485,8 @@ class TurnHeadCounterClockWise(smach.State):
             neck_angle_.data = neck_angle_.data +0.01;
             neck_controller.publish(neck_angle_)
             neck_controller_rate.sleep()
+        #   Wait for some time
+        rospy.sleep(1)
         return 'done'
 
 ##
@@ -520,6 +533,8 @@ class TurnHeadClockWise(smach.State):
             neck_angle_.data = neck_angle_.data -0.01;
             neck_controller.publish(neck_angle_)
             neck_controller_rate.sleep()
+        #   Wait for some time
+        rospy.sleep(1)
         return 'done'
 
 ##
@@ -589,7 +604,7 @@ def main():
     global maximum_dead_time
     global neck_controller
     global neck_controller_rate
-    #global planning_client
+    global max_speed
 
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
@@ -632,6 +647,9 @@ def main():
     #   Retrieve the parameters of the fatigue threshold and max dead time
     fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
     maximum_dead_time = rospy.get_param('/maximum_dead_time', 5)
+
+    #   Robot maximum linear velocity
+    max_speed = rospy.get_param('/max_speed', 0.5)
 
     print("fatigue_threshold" , fatigue_threshold)
     print("maximum_dead_time" , maximum_dead_time)

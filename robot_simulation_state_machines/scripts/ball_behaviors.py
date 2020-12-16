@@ -68,6 +68,10 @@ height = 0
 number_of_movements = 0
 
 ##
+#   \brief Define the amount of time in which the ball stays in the reached position.
+wait_in_position = 0
+
+##
 #   \brief Define the minimum time to wait in the Hide state.
 minimum_time_in_hide = 0
 
@@ -126,6 +130,7 @@ class Move(smach.State):
     #
     def execute(self, userdata):
         global number_of_movements
+        global wait_in_position
         while not rospy.is_shutdown():
             for index in range(number_of_movements):
                 #   Declare a geometry_msgs/Pose for the random position
@@ -136,6 +141,8 @@ class Move(smach.State):
                 random_.position.z = 1
                 #   Call the service to reach this position
                 reachPosition(random_, wait=True)
+                #   Wait some time in the reached position
+                rospy.sleep( wait_in_position )
             return 'hide'
 
 ##
@@ -199,6 +206,7 @@ def main():
     global number_of_movements
     global minimum_time_in_hide
     global maximum_time_in_hide
+    global wait_in_position
 
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
@@ -207,7 +215,7 @@ def main():
     maximum_time_onstart = rospy.get_param('/maximum_time_onstart', 40)
 
     #   Sleep for letting the robot moving a while before showing up
-    waitForRandTime(minum_time_onstart, maximum_time_onstart)
+    waitForRandTime(minimum_time_onstart, maximum_time_onstart)
 
     print("Starting to move the ball")
     random.seed()
@@ -223,7 +231,8 @@ def main():
     minimum_time_in_hide = rospy.get_param('/minimum_time_in_hide', 10)
     maximum_time_in_hide = rospy.get_param('/maximum_time_in_hide', 20)
 
-
+    #   The time to wait in the reached position
+    wait_in_position = rospy.get_param('/wait_in_position', 5)
 
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['ball_behavior_interface'])
