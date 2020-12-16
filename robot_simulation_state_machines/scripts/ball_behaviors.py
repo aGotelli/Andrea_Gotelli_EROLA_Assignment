@@ -57,22 +57,23 @@ from robot_simulation_state_machines.reach_goal import reachPosition
 
 ##
 #   \brief Define the width of the discretized world.
-#
-#   It is a parameter that the user may change with the use of the correct ROS parameter.
 width = 0
 
 ##
 #   \brief Define the height of the discretized world.
-#
-#   It is a parameter that the user may change with the use of the correct ROS parameter.
 height = 0
 
 ##
 #   \brief Define how many movements the ball will perform before hiding.
-#
-#   It is a parameter that the user may change with the use of the correct ROS parameter.
 number_of_movements = 0
 
+##
+#   \brief Define the minimum time to wait in the Hide state.
+minum_time_in_hide = 0
+
+##
+#   \brief Define the maximum time to wait in the Hide state.
+maximum_time_in_hide = 0
 
 ##
 #   \brief waitForRandTime Global blocking function
@@ -168,6 +169,9 @@ class Hide(smach.State):
     #   waits a random amount of time calling the function waitForRandTime with default parameters.
     #
     def execute(self, userdata):
+        global minum_time_in_hide
+        global maximum_time_in_hide
+
         #   Declare a geometry_msgs/Pose for the random position
         random_ = Pose()
         #   Define the random components (x, y) of this random position
@@ -177,7 +181,7 @@ class Hide(smach.State):
         #   Call the service to reach this position
         reachPosition(random_, wait=True)
         #   Wait some time before showing ball again
-        waitForRandTime()
+        waitForRandTime(minum_time_in_hide, maximum_time_in_hide)
         return 'move'
 
 
@@ -193,20 +197,33 @@ def main():
     global width
     global height
     global number_of_movements
+    global minum_time_in_hide
+    global maximum_time_in_hide
 
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
 
-    #   Sleep for waiting the end of all the Initialization logs
-    #waitForRandTime(30, 40)
-    waitForRandTime(2, 3)
+    minum_time_onstart = rospy.get_param('/minum_time_onstart', 30)
+    maximum_time_onstart = rospy.get_param('/maximum_time_onstart', 40)
+
+    #   Sleep for letting the robot moving a while before showing up
+    waitForRandTime(minum_time_onstart, maximum_time_onstart)
+
     print("Starting to move the ball")
     random.seed()
 
     #   Retrieve the parameter about the world dimensions
     width = rospy.get_param('/world_width', 20)
     height = rospy.get_param('/world_height', 20)
+
+    #   The number of movements to perform
     number_of_movements = rospy.get_param('/number_of_movements', 5)
+
+    #   The time interval for waiting in the Hide state
+    minum_time_in_hide = rospy.get_param('/minum_time_in_hide', 10)
+    maximum_time_in_hide = rospy.get_param('/maximum_time_in_hide', 20)
+
+
 
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['ball_behavior_interface'])
