@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   smach_ros
   std_msgs
   nav_msgs
+  tf
   sensor_msgs
   geometry_msgs
   robot_simulation_messages
