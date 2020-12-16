@@ -47,7 +47,7 @@ As can be seen in the image above, there are two main elements in this simulatio
 The robot is a pet like robot which starts to move randomly in the environment until its tired, then it goes to sleep. If it detects a ball, then it try to reach it. If it is not tired yet then it turns the head on the left first and then on its right. If the ball is not detected for some time, it starts again to move around randomly. On the other hand, if the ball is detected the robot interacts with it. While interacting with the ball, if the robot gets tired, it goes to sleep.
 
 ###### The Ball
-The ball is an element which has only two states: it can move randomly in the environment and it can hide from the robot. It basically moves some times and then it hides, waiting a random amount of time before showing up again.
+The ball is an element which has only two states: it can move randomly in the environment and it can hide from the robot. Before starting the execution of the mentioned states, it waits for some time which is parameterized with an appropriate [parameter](#MSG-P). In this wait, the robot will have some time to move around without being triggered by the ball. After having waited for some time, it basically moves some times and then it hides, waiting a random amount of time before showing up again. The number of times it moves and the time it waits while hiding are again parameterized with an appropriate [parameter](#MSG-P).
 
 ## <a name="SA-RSMD"></a>The Robot State Machine Diagram
 The following figure shows the state machine diagram for the robot, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
@@ -171,26 +171,28 @@ Finally, in this project there are some parameters which can be set from the lau
 * world_width and world_height: allow to set the dimensions of the discretized 2D world.
 * sleep_x_coord and sleep_y_coord: allow to freely chose the sleeping position i.e. the position where the robot goes when in the [Rest](#RSMD-REST) behavior.
 * fatigue_threshold: allow to set how many movement the robot can perform before reaching the [Rest](#RSMD-REST) behavior.
-
+* minimum_time_onstart and maximum_time_onstart: set the range of time to wait before starting to [move the ball](#BSMD-MOVE).
+* minimum_time_in_hide and maximum_time_in_hide: set the range of time the ball will wait while [hiding](#BSMD-HIDE).
+* number_of_movements: defines how many times the ball reaches a new random position in its [Move](#BSMD-MOVE) stat.
+* maximum_dead_time: allow to set how much time the robot will wait in the [Play](#RSMD-PLAY), without seeing the ball, before switching to [Move](#RSMD-MOVE).
 
 # <a name="S-PFL"></a>Packages and Files List
 
 The following image shows the overall structure for the project and where to find a specific file.
 
-The doc folder contains the doxygen file as well as the index.html file that is the one to be opened with the browser in order to visualize the documentation.
+![EROLA_first_assignment_AG](doc/images/directory_topology.png)
+
+The doc folder contains the doxygen file that has to be executed to generate the documentation, as explained [here](#S-IRP).
 
 There are three packages where to find all the files for this project. In robot_simulation_description there are all the files related to the graphical part such as the xacro files, the related gazebo files as well as the defintion of the world that is loaded into Gazebo. In the package robot_simulation_messages there are the [generated messages and services](#SA-MSG) used in this application. Finally, in the robot_simulation_state_machines package, there is the python scrips containing the two state machines: the [Robot State Machine](#SA-SSMD) and the [Ball State Machine](#SA-BSMD) as well as the files: [move_ball.py](#CD-MB), [move_robot.py](#CD-MR)
-and [reach_goal.py](#CD-RG).
+and the module [reach_goal.py](#CD-RG).
 Additionally, in this package is also present a launch file, in the homonym folder.
-
-![EROLA_first_assignment_AG](doc/images/tree_.png)
-
 
 
 # <a name="S-IRP"></a>Installation and Running Procedure
 Firt you need to git clone the project, in your ROS1 workspace:
 
-    git clone https://github.com/aGotelli/EROLA_first_assignment_AG.git
+    git clone https://github.com/aGotelli/Andrea_Gotelli_EROLA_Assignment.git
 
 In order to use this application is necessary to install smach. To do that it is sufficient to run the following:
 
@@ -207,13 +209,14 @@ And then
 
 Else if you use catkin build then a normal call is sufficient.
 
-You then need to make the script executable. In the state_machine/scripts folder run :
+You then need to make the scripts executable. In the robot_simulation_state_machines/scripts folder run :
 
-    chmod +x state_machine.py
+    chmod +x < component >.py
 
-To run this application it is sufficient to launch the only launch file that is present in the robot_simulation package. After having build the package you can simply run:
+Where < component > has to be replaced with the name of the four ROS nodes: ball_behaviors, robot_behaviors, move_ball and move_robot.
+To run this application it is sufficient to launch the dedicated launch file that is present in the robot_simulation_state_machines package. After having build the package you can simply run:
 
-    roslaunch robot_simulation run_behaviors.launch
+    roslaunch robot_simulation_state_machines assignment_interface.launch
 
 In order to generate the documentation, the is a Doxyfile in the doc folder. You have to run from terminal:
 
@@ -225,7 +228,9 @@ in the doc folder. If you have not doxygen installed, [here](https://www.doxygen
 The pet like robot is simulated in a world consisting in a square arena without obstacles inside. This simulations takes into account the robot dynamics and frictions components. In other words, this simulation is aware of the mass of each of the robot component, as well as inertia and joints friction. As a result, the robot simulates a more consistent and close to reality motions. The ball is simulated to be collision less. As a result, it can be hidden below the floor and it does not collide with the robot if it accidentally passes over or across it.
 
 # <a name="S-SF"></a>System’s features
-This application simulated the robot real dynamics using a physical simulator. The robot is able to stop as soon as it sees the ball in order to change the motion and move toward it. On the other hand, when the robot is reaching the position for sleeping, it completely ignore the ball in the eventuality that it comes in the robot field of view. This is made possible by the action service. In fact, it allows to create a non blocking and a blocking request of reaching the position, allowing to process, or disregard, eventual changes in the simulation.  
+This application simulated the robot real dynamics using a physical simulator. The robot is able to stop as soon as it sees the ball in order to change the motion and move toward it. On the other hand, when the robot is reaching the position for sleeping, it completely ignore the ball in the eventuality that it comes in the robot field of view. This is made possible by the action service. In fact, it allows to create a non blocking and a blocking request of reaching the position, allowing to process, or disregard, eventual changes in the simulation.
+
+For what concerns the user interface, this application offers a clean launch file: assignment_interface.launch which contains all the parameter a user may change while using this application. All the other low level instruction are instantiated in second launch file which is included.
 
 # <a name="S-SF"></a>System’s limitations
 In this paragraph there is a list of the system limitation.

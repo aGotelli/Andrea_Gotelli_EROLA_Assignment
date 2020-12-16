@@ -69,7 +69,7 @@ number_of_movements = 0
 
 ##
 #   \brief Define the minimum time to wait in the Hide state.
-minum_time_in_hide = 0
+minimum_time_in_hide = 0
 
 ##
 #   \brief Define the maximum time to wait in the Hide state.
@@ -169,7 +169,7 @@ class Hide(smach.State):
     #   waits a random amount of time calling the function waitForRandTime with default parameters.
     #
     def execute(self, userdata):
-        global minum_time_in_hide
+        global minimum_time_in_hide
         global maximum_time_in_hide
 
         #   Declare a geometry_msgs/Pose for the random position
@@ -181,7 +181,7 @@ class Hide(smach.State):
         #   Call the service to reach this position
         reachPosition(random_, wait=True)
         #   Wait some time before showing ball again
-        waitForRandTime(minum_time_in_hide, maximum_time_in_hide)
+        waitForRandTime(minimum_time_in_hide, maximum_time_in_hide)
         return 'move'
 
 
@@ -197,13 +197,13 @@ def main():
     global width
     global height
     global number_of_movements
-    global minum_time_in_hide
+    global minimum_time_in_hide
     global maximum_time_in_hide
 
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
 
-    minum_time_onstart = rospy.get_param('/minum_time_onstart', 30)
+    minimum_time_onstart = rospy.get_param('/minimum_time_onstart', 30)
     maximum_time_onstart = rospy.get_param('/maximum_time_onstart', 40)
 
     #   Sleep for letting the robot moving a while before showing up
@@ -220,7 +220,7 @@ def main():
     number_of_movements = rospy.get_param('/number_of_movements', 5)
 
     #   The time interval for waiting in the Hide state
-    minum_time_in_hide = rospy.get_param('/minum_time_in_hide', 10)
+    minimum_time_in_hide = rospy.get_param('/minimum_time_in_hide', 10)
     maximum_time_in_hide = rospy.get_param('/maximum_time_in_hide', 20)
 
 
