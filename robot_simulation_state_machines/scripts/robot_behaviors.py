@@ -75,11 +75,11 @@ from robot_simulation_state_machines.reach_goal import reachPosition
 from robot_simulation_state_machines.reach_goal import planning_client
 
 ##
-#   \brief Define the width of the discretized world.
+#   \brief Define the width of the arena.
 width = 0
 
 ##
-#   \brief Define the height of the discretized world.
+#   \brief Define the height of the arena.
 height = 0
 
 ##
@@ -195,7 +195,7 @@ def odometryReceived(msg):
 #   then by selecting element of a certain color. The color is indicated in the function itself.
 #   After having detected the object of given color, it takes into account only the bigger of them.
 #   It evaluates the circle which contains the object, computing the center and the radius.
-#   Based on the value of the radius, the function determines either if the robot has reached the
+#   Based on the value of the radius, the function determines either if the robot is close to the
 #   ball or if it should move closer to it. In this last case, it computes a geometry_msgs/Twist message
 #   containing an adjustement of the heading, for having the ball centered in the image, and a linear
 #   velocity to move the robot closer to the ball. In the computation of the linear velocity, it limits the
@@ -308,7 +308,7 @@ def retrieveNeckAngle(joint_state):
 #
 #   This class inheritates from smach and it consist of a state in the state machine. The state
 #   that is represented here is the Move state. In this state the robot moves around randomly calling
-#   the service /MoveToPosition. As part of the smach class, this class has the member function execute()
+#   the dedicated action service. As part of the smach class, this class has the member function execute()
 #   providing the intended behavior. For more details about the content of this class, see the member functions
 #   documentation.
 #
@@ -320,7 +320,6 @@ class Move(smach.State):
     #   \param output_keys list of the possible outputs for this state (user data shared among states).
     #
     #   This member function initializes the state machine state. It follows the conventions for smach.
-    #   Moreover, it initializes the subscriber necessary to receive a command from the person.
     #
     def __init__(self):
 
@@ -336,14 +335,15 @@ class Move(smach.State):
     #   \return a string consisting of the state outcome
     #
     #   This member function is responsible of simulating the Move behavior for the robot.
-    #   First it checks if the person has commanded something, in which case it returns the state 'playing'
-    #   in order to change the state into Play.
-    #   Secondly it checks if the robot is "tired". In a positive case it returns a string containing 'tired'
-    #   to make the state machine to move to the Rest state.
-    #   Finally, if none of the previous conditions has occurred, it increses the fatigue counter, it generates
-    #   a random postion and it calls the service /MoveToPosition.
-    #
-    #   This member function loops in the previusly described phases untill one of the first two cases appears.
+    #   First it generates a random position, comanding the robot to reach it with the
+    #   non blocking version of reachPosition(). After this initialization, it recursively cheks if the
+    #   ball has been detected, in which case it uses the transition 'play' in order to move to the Play
+    #   behavior, which starts with the FollowBall state. On the other hand, if the ball is not detected,
+    #   it checks wheter the robot has reached the goal, looping in this double instances checking.
+    #   In the case the robot has reached the goal, in increases the level of fatigue also comparing it
+    #   with the fatigue_threshold with isTired(). In case of a positive response, it returns 'tired' in order
+    #   to trigger the Rest behavior.Finally, if the robot is not tired, it generates a random position and
+    #   it calls again the non blocking verison of reachPosition().
     #
     def execute(self, userdata):
         global ball_detected
@@ -413,7 +413,8 @@ class Rest(smach.State):
     #   \param userdata Is the structure containing the data shared among states.
     #   \return a string consisting of the state outcome
     #
-    #   This simple member function moves the robot in the sleeping position and waits for some time
+    #   This simple member function moves the robot in the sleeping position using the blocking
+    #   version of reachPosition(). Once reached the sleep_station it waits for some time
     #   in order to simulate the pet like robot sleeping. It also resets the fatigue level to zero
     #   to let the robot to move and performs his behaviors.
     #
@@ -459,7 +460,7 @@ class FollowBall(smach.State):
     #   \return a string consisting of the state outcome
     #
     #   This funtion makes the robot move towards the detected ball. To do so, it publishes the
-    #   geometry_msgs/Twist message defined in the imageReceived callback.
+    #   geometry_msgs/Twist message defined in the imageReceived() callback.
     #   It makes the robot to follow the ball until the ball is consider close to the robot and this
     #   last one is also still. To satifly the first condition, the value of the dedicated boolean:
     #   ball_is_close is checked. Secondly, for the other condition, both the linear and angular
@@ -467,13 +468,13 @@ class FollowBall(smach.State):
     #   robot and the robot is not significantly moving than the ball is considered as reached.
     #   Once the ball has been reached, first it increases the fatigue counter as a new motion has been
     #   completed, then it checks that the robot has not reached the fatigue threshold. In this case
-    #   it returns 'turn_head' in other to chage the state into the TURN_HEAD state. On the other hand,
-    #   if the level of fatigue has reached the threshold, then it returns 'tired' in order to change
-    #   the state into TIRED.
-    #   On the other hand, if the balls disappears from the camera field of view, it chenges the state
-    #   with the transition 'ball_lost' in order to search for the ball in the state TURN_ROBOT.
+    #   it returns 'turn_head' in other to chage the state into the TURN_HEAD_COUNTERCLOCKWISE state, described in the
+    #   TurnHeadCounterClockWise class. On the other hand, if the level of fatigue has reached the threshold,
+    #   then it returns 'tired' in order to change the state into REST, represented in Rest.
+    #   On the other hand, if the balls disappears from the camera field of view, it changes the state
+    #   with the transition 'ball_lost' in order to search for the ball in the state TURN_ROBOT, see TurnRobot.
     #   Finally, if the ball has not been detected for a time greater then the maximum_dead_time then
-    #   it exit the state returning 'stop_play' changing the state into MOVE.
+    #   it exit the state returning 'stop_play' changing the state into MOVE, see Move.
     #
     def execute(self, userdata):
         global ball_detected
@@ -545,7 +546,7 @@ class TurnHeadCounterClockWise(smach.State):
     #   current angle of a fixed step and it sends as rotation angle for the joint. This will simulate the
     #   head of the robot to turn in the counterclockwise direction.
     #   After having reached the desired angle, it returns 'done' in order to change the state into
-    #   TURN_HEAD_CLOCKWISE.
+    #   TURN_HEAD_CLOCKWISE, see TurnHeadClockWise
     #
     def execute(self, userdata):
         global neck_angle
@@ -593,7 +594,7 @@ class TurnHeadClockWise(smach.State):
     #   current angle of a fixed step and it sends as rotation angle for the joint. This will simulate the
     #   head of the robot to turn in the clockwise direction.
     #   After having reached the desired angle, it returns 'done' in order to change the state into
-    #   SET_HEAD_STRAIGHT.
+    #   SET_HEAD_STRAIGHT, see SetHeadStraight.
     #
     def execute(self, userdata):
         global neck_angle
@@ -635,12 +636,12 @@ class SetHeadStraight(smach.State):
     #   to pass the level of fatigue among states.
     #   \return a string consisting of the state outcome
     #
-    #   This funtion makes the robot to turn the back to the origina configuration.
+    #   This funtion makes the robot to turn its head the back to the original configuration.
     #   It reads the current value of the angle of the neck_joint and it increases it by a fixed
     #   step and it sends as rotation angle for the joint. This will simulate the head of the robot
     #   to turn in the origina orientation.
     #   After having reached the desired angle, it returns 'done' in order to change the state back into
-    #   FOLLOW_BALL.
+    #   FOLLOW_BALL, see FollowBall.
     #
     def execute(self, userdata):
         global ball_detected
@@ -697,7 +698,9 @@ class TurnRobot(smach.State):
     #
     #   This function simply makes the robot tu turn at the most of 360°. If it reaches this
     #   degree of rotation, then it uses the transition 'full_turn'. In the case it detects the ball while
-    #   turning it returns the transition 'ball_found'. However, bot the transition lead to the state FOLLOW_BALL.
+    #   turning it returns the transition 'ball_found'. However, bot the transition lead to the state FollowBall.
+    #   In the case the maximum time without a ball detection is expired, it returns 'stop_play' in order to
+    #   move to the Move behavior.
     #
     def execute(self, userdata):
         global yaw

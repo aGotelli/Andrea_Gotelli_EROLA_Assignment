@@ -56,11 +56,11 @@ from robot_simulation_state_machines.reach_goal import reachPosition
 
 
 ##
-#   \brief Define the width of the discretized world.
+#   \brief Define the width of the arena.
 width = 0
 
 ##
-#   \brief Define the height of the discretized world.
+#   \brief Define the height of the arena.
 height = 0
 
 ##
@@ -85,7 +85,7 @@ maximum_time_in_hide = 0
 #   \param max Default 20, is the maximum time, in seconds
 #
 #   This function only calls the rospy function sleep(t) which
-#   stops the code for a time t. this time is computed randomly
+#   stops the program execution for a time t. this time is computed randomly
 #   in the interval given by the min and max parameters.
 #   This interval is [10 20] by default.
 def waitForRandTime(min=10, max=20):
@@ -122,9 +122,10 @@ class Move(smach.State):
     #   ROS enviroment is still available, i.e. that the roscore is still operating, and
     #   it enters in a second loop which iterates for a fixed number of time the moving
     #   sequence. The number of time is given by the global variable number_of_movements.
+    #   After each accomplished movement, it wait for the user-specified amount of time: wait_in_position
     #
     #   The moving sequence is simply obtained by the creation of a random position within the
-    #   world, and then the position is fed into the function reachPosition.
+    #   world, and then the position is fed into the function reachPosition().
     #
     #   After the last motion, the function returns a string in order to change the state into "hide"
     #
@@ -171,9 +172,9 @@ class Hide(smach.State):
     #
     #   This simple member function moves the ball two meters below the floor in order to make it
     #   disappear for the robot. It simply creates the position two meters below the origin of the
-    #   world frame and it fed it as a parameter of the function reachPosition. In this case the
+    #   world frame and it fed it as a parameter of the function reachPosition(). In this case the
     #   parameter wait is setted to true in order to make the function blocking. Moreover, it
-    #   waits a random amount of time calling the function waitForRandTime with default parameters.
+    #   waits a random amount of time calling the function waitForRandTime() with default parameters.
     #
     def execute(self, userdata):
         global minimum_time_in_hide
