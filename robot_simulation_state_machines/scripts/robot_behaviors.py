@@ -199,9 +199,10 @@ def odometryReceived(msg):
 #   ball or if it should move closer to it. In this last case, it computes a geometry_msgs/Twist message
 #   containing an adjustement of the heading, for having the ball centered in the image, and a linear
 #   velocity to move the robot closer to the ball. In the computation of the linear velocity, it limits the
-#   maximum value in order to avoid dangerous soaring.
-#   It also changes the value or the gobal boolean
-#   ball_detected to True.
+#   maximum value in order to avoid dangerous soaring. The limitation must be stronger in the first instants of the
+#   of the motion and less invasive later. For this reason the twist is linearly incremented from the 0% to the
+#   100% of the computed value in the first 3 seconds of motion.
+#   It also changes the value or the gobal boolean ball_detected to True.
 #   On the other hand,if the radius is equal or bigger than a given threshold, it assumes that the ball is
 #   close to the robot. This will be one of the two key points in order to establish whether the ball
 #   as been reached or not.
