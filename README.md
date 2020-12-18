@@ -29,7 +29,7 @@ This file aim to explain how to move inside this project. It should be read befo
 This project contains packages to simulate three behaviors for a pet like robot. The pet like robot will move in an obstacles free arena, interacting with a ball which from time to time appears in the environment.
 
 # <a name="S-Sofar"></a>Software Architecture
-The three robot behaviors are described by the following states: it can move around randomly, it can play, interacting with a big green ball, and it goes in a predetermined position for resting, when tired. The three states are governed using two nested finite state machines, which define the transitions from one state to another. For the knowledge representation, three diagrams are implemented: one for the robot and the ball respectively state machine and one representing all the relevant components of this simulation.
+The three robot behaviors are described by the following states: it can move around randomly, it can play, interacting with a big green ball, and it goes in a predetermined position for resting, when tired. The three states are governed using two nested finite state machines, which define the transitions from one state to another. For the knowledge representation, five diagrams are implemented: one for the robot and the ball respectively state machine and one representing all the relevant components of this simulation.
 
 * [The Activity Diagram](#SA-AD)
 * [The Robot State Machine Diagram](#SA-SSMD)
@@ -123,7 +123,7 @@ The following image shows a sort of component diagram which is shown in order to
 ![EROLA_first_assignment_AG](doc/images/groups_and_nodes_v4.png)
 
 As shown in the image, in this simulation there are only two groups: the ball and the robot group.
-Both groups are indicated with a frame: red for the robot and green for the ball. Each group has a node controlling the behaviors of the object of interest and the action service provided dedicated for the motion of it. They share a script: reach_goal, which is used by the two to call the local action service provider. Moreover, each group member has its own interaction with the Gazebo environment. These interaction are detailed later in this document; the aim of this section it to clarify the high level structure before dive into the low level architecture. 
+Both groups are indicated with a frame: red for the robot and green for the ball. Each group has a node controlling the behaviors of the object of interest and the action service provided dedicated for the motion of it. They share a script: reach_goal, which is used by the two to call the local action service provider. Moreover, each group member has its own interaction with the Gazebo environment. These interaction are detailed later in this document; the aim of this section it to clarify the high level structure before dive into the low level architecture.
 
 ## <a name="SA-CD"></a>The Component Diagram
 The following figure shows the components and their relevant parts of this application. Additionally, it also includes a class diagram inside the state machine components. In fact, it is important to understand that all the behaviors are simulated through the execution of the member function execute() common to all classes.
