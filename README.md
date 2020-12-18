@@ -278,11 +278,12 @@ In this paragraph there is a list of the system limitation.
 
 # <a name="S-PTI"></a>Possible Technical Improvements
 This project was developed with the aim of being possible to implement, improve and change features during the time. Some further work which could improve the performance of the application could be the following.
-* Add a condition to assume that the ball has been reached based on the ball velocity. If the radius meet the required value and the ball results not moving then it is assumed to be reached.
-* The ball could subscribe to the robot odometry in order to appear only in front of it and moving in its field of view.
-* Add an error handling section in order to prevent the user to input inconsistent data.
-* Introduce the possibility for the user to interact directly with the application, for example through the keyboard.
-* Add the smach_viewer interface once solved the problem of integration or when the package itself is ported in python3.
+ * In order to tdected if the robot is still, at the place of considering the computed twist in the function [imageReceived](#RB-RNA), it would be better to use the real robot twist available in the odometry message.
+ * The procedure of finding the ball could be improved. In fact, if after a full turn of the robot there is still time, another behavior could be triggered, with a different strategy to search for the ball.
+ * The robot max speed could be considered in the joint limit velocity and effort, leaving it out of the code, resulting in a less robot dependent code.
+ * Add an error handling section in order to prevent the user to input inconsistent data.
+ * Introduce the possibility for the user to interact directly with the application, for example through the keyboard.
+ * Add the smach_viewer interface once solved the problem of integration or when the package itself is ported in python3.
 
 
 # <a name="S-AC"></a>Authors and Contacts
