@@ -34,6 +34,7 @@ The three robot behaviors are described by the following states: it can move aro
 * [The Activity Diagram](#SA-AD)
 * [The Robot State Machine Diagram](#SA-SSMD)
 * [The Ball State Machine Diagram](#SA-BSMD)
+* [The Groups and Nodes diagrams](#SA-GAND)
 * [The Component Diagram](#SA-CD)
 
 ## <a name="SA-AD"></a>The Activity Diagram
@@ -116,7 +117,13 @@ The ball starts in the in the Move state, where it moves randomly in the environ
 ##### <a name="BSMD-HIDE"></a>The Hide behavior
 In this state, the ball is controlled, again with the use of function in [reach_goal](#CD-RG), to reach a position under the floor. This will hide the ball from the robot camera field of view. Once the position has been reached, it waits for some time, randomly generated in an interval, indicated by the appropriate parameters : [minimum_time_in_hide and maximum_time_in_hide](#MSG-P), before using the transition "move" to change state into [Move](#BSMD-MOVE).
 
+## <a name="SA-GAND"></a>The Groups and Nodes Diagram
+The following image shows a sort of component diagram which is shown in order to make the reader aware of the groups configuration in this simulation. In fact, before proceed to consider a more complex component diagram, it is important to grasp how groups and nodes are organized.
 
+![EROLA_first_assignment_AG](doc/images/groups_and_nodes_v4.png)
+
+As shown in the image, in this simulation there are only two groups: the ball and the robot group.
+Both groups are indicated with a frame: red for the robot and green for the ball. Each group has a node controlling the behaviors of the object of interest and the action service provided dedicated for the motion of it. They share a script: reach_goal, which is used by the two to call the local action service provider. Moreover, each group member has its own interaction with the Gazebo environment. These interaction are detailed later in this document; the aim of this section it to clarify the high level structure before dive into the low level architecture. 
 
 ## <a name="SA-CD"></a>The Component Diagram
 The following figure shows the components and their relevant parts of this application. Additionally, it also includes a class diagram inside the state machine components. In fact, it is important to understand that all the behaviors are simulated through the execution of the member function execute() common to all classes.
