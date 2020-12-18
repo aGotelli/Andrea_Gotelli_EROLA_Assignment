@@ -164,13 +164,13 @@ def isTired(fatigue_level):
         return False
 
 ##
-#    \brief clbk_odom stores the value of the current robot heading
+#    \brief odometryReceived stores the value of the current robot heading
 #    \param msg is the robot current odometry
 #
 #    This function simply process the received odometry message in order to
 #    to obtain the current heading of the robot.
 #
-def clbk_odom(msg):
+def odometryReceived(msg):
     global yaw
 
     pose = msg.pose.pose
@@ -677,7 +677,7 @@ class TurnRobot(smach.State):
     #   This constructor initializes the outcomes for this state.
     #
     def __init__(self):
-        smach.State.__init__(self, outcomes=['full_turn', 'ball_found'])
+        smach.State.__init__(self, outcomes=['full_turn', 'ball_found', 'stop_play'])
 
     ##
     #   \brief normalizeAngle given an angle, returns its corresponding value in the interval [-&pi, &pi]
@@ -701,6 +701,7 @@ class TurnRobot(smach.State):
     def execute(self, userdata):
         global yaw
         global time_since
+        global maximum_dead_time
         global ball_detected
         global robot_controller
 
@@ -712,6 +713,9 @@ class TurnRobot(smach.State):
             if ball_detected :
                 #   Change the state
                 return 'ball_found'
+            #   If the mximum time without ball has been reaced
+            if time_since >= maximum_dead_time:
+                return 'stop_play'
             #   Else rotate the robot a bit more
             rotation_twist = Twist()
             rotation_twist.angular.z = -0.8
@@ -774,7 +778,7 @@ def main():
     robot_controller = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
     #   Definition of the subscriber for the robot Odometry
-    sub_odom = rospy.Subscriber('odom', Odometry, clbk_odom)
+    sub_odom = rospy.Subscriber('odom', Odometry, odometryReceived)
 
     #   Retrieve the parameter about the world dimensions
     width = rospy.get_param('/world_width', 20)
@@ -828,7 +832,8 @@ def main():
 
             smach.StateMachine.add('TURN_ROBOT', TurnRobot(),
                                    transitions={'full_turn':'FOLLOW_BALL',
-                                                'ball_found':'FOLLOW_BALL'})
+                                                'ball_found':'FOLLOW_BALL',
+                                                'stop_play':'bored_of_play'})
 
             smach.StateMachine.add('TURN_HEAD_COUNTERCLOCKWISE', TurnHeadCounterClockWise(),
                                    transitions={'done':'TURN_HEAD_CLOCKWISE'})
