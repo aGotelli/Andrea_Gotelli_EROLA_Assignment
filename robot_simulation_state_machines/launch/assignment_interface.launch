@@ -12,8 +12,8 @@
     <param name="/maximum_time_onstart"    value="40" />
 
     <!-- Parameters to define the interval of time in which the ball ramains hidden -->
-    <param name="/minimum_time_in_hide"      value="10" />
-    <param name="/maximum_time_in_hide"    value="20" />
+    <param name="/minimum_time_in_hide"      value="30" />
+    <param name="/maximum_time_in_hide"    value="40" />
 
     <!-- Parameter to define how many time the ball should move -->
     <param name="/number_of_movements"      value="5" />
