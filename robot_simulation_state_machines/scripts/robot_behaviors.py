@@ -5,23 +5,27 @@
 #   \version 0.2
 #   \date 22/10/2020
 #
-#   \param [in] world_width the width of the discretized world
-#   \param [in] world_height the height of the discretized world
-#   \param [in] sleep_x_coord is the x coordinate of the position where the robot sleeps
-#   \param [in] sleep_y_coord is the y coordinate of the position where the robot sleeps
+#   \param [in] world_width
+#   \param [in] world_height
+#   \param [in] sleep_x_coord
+#   \param [in] sleep_y_coord
+#   \param [in] fatigue_threshold
+#   \param [in] maximum_dead_time
+#   \param [in] max_speed
 #
 #   \details
 #
 #   Subscribes to: <BR>
-#       ° /PlayWithRobot topic where the person publishes the given play command
+#       ° camera1/image_raw/compressed
+#       ° joint_neck_position_controller/state
+#       ° odom
 #
 #   Publishes to: <BR>
-#       ° [None]
+#       ° joint_neck_position_controller/command
+#       ° cmd_vel
 #
 #   Service : <BR>
-#       ° /Gesture as client, it waits for the gesture to come.
-#
-#       ° /MoveToPosition as cliet, ask to simulate the motion to the given position
+#       ° [None]
 #
 #   Description :
 #
@@ -91,6 +95,10 @@ maximum_dead_time = 0
 neck_controller = None
 
 ##
+#   \brief Definition of the controller which directly controls the robot velocity
+robot_controller = None
+
+##
 #   \brief Definition of the frequency for publishing command to the robot neck
 neck_controller_rate = None
 
@@ -104,7 +112,7 @@ ball_detected = False
 
 ##
 #   \brief  It is a global boolen to make the state aware of the fact that the robot has reached the ball or not. The information comes from the image processing algorithm
-ball_reached = False
+ball_is_close = False
 
 ##
 #   \brief  It is a global geometry_msgs/Twist message to be accessed by the states that need to publish this command
@@ -127,6 +135,20 @@ neck_angle = 0.0
 max_speed = 0
 
 ##
+#   \brief Is the time passed from the moment the ball appeared in the camera view,
+#           it incresed as long as the ball remains detected.
+detection_time = 0.0
+
+##
+#   \brief Is the value for the radius of the circle containing the ball to consider as a
+#           reference value to assume that the ball is "close" to the robot.
+radius_threshold = 100
+
+##
+#   \brief Is the robot heading
+yaw = 0.0
+
+##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
 #    \param level [integer] is the current level of fatigue of the robot.
 #    \return a boolen. True if the robot is "tired" false elsewhere.
@@ -137,11 +159,30 @@ max_speed = 0
 def isTired(fatigue_level):
     global sleepy_robot
     if fatigue_level >= fatigue_threshold:
-        #sleepy_robot = True
         return True
     else :
         return False
 
+##
+#    \brief clbk_odom stores the value of the current robot heading
+#    \param msg is the robot current odometry
+#
+#    This function simply process the received odometry message in order to
+#    to obtain the current heading of the robot.
+#
+def clbk_odom(msg):
+    global yaw
+
+    pose = msg.pose.pose
+
+    # yaw
+    quaternion = (
+        msg.pose.pose.orientation.x,
+        msg.pose.pose.orientation.y,
+        msg.pose.pose.orientation.z,
+        msg.pose.pose.orientation.w)
+    euler = transformations.euler_from_quaternion(quaternion)
+    yaw = euler[2]
 
 
 ##
@@ -161,19 +202,16 @@ def isTired(fatigue_level):
 #   maximum value in order to avoid dangerous soaring.
 #   It also changes the value or the gobal boolean
 #   ball_detected to True.
-#   On the other hand,if the radius is equal or bigger than a given threshold, it assumes that the robot
-#   has reached the ball and it sets the corresponding variable ball_reached to True.
+#   On the other hand,if the radius is equal or bigger than a given threshold, it assumes that the ball is
+#   close to the robot. This will be one of the two key points in order to establish whether the ball
+#   as been reached or not.
 #   Finally, in the case that none of the previusly happened, it sets both the global boolean ball_detected
-#   and ball_reached to False.
+#   and ball_is_close to False.
 #
-
-detection_time = 0.0
-
-radius_threshold = 100
 def imageReceived(ros_data):
     global planning_client
     global ball_detected
-    global ball_reached
+    global ball_is_close
     global robot_twist
     global time_since
     global last_detection
@@ -213,7 +251,6 @@ def imageReceived(ros_data):
             if not ball_detected:
                 detection_time  = rospy.Time.now().to_sec()
 
-
             # draw the circle and centroid on the frame,
             # then update the list of tracked points
             cv2.circle(image_np, (int(x), int(y)), int(radius),
@@ -223,17 +260,16 @@ def imageReceived(ros_data):
             robot_twist.angular.z = 0.005*(center[0]-400)
             robot_twist.linear.x = 0.02*(110-radius)
 
-            #   Limit the robot maximum linear velocity
             scale = 1
             time_from_first_detection = rospy.Time.now().to_sec() - detection_time
+            #   Increase linearly for 3 seconds to avoid soaring
             if ( time_from_first_detection <= 3.0 ):
                 scale = time_from_first_detection/3
-
+            #   Limit the robot maximum linear velocity
             if abs(robot_twist.linear.x) > max_speed :
                 robot_twist.linear.x = np.sign(robot_twist.linear.x)*max_speed
-
             robot_twist.linear.x = robot_twist.linear.x*scale
-
+            #   Finalize detection
             ball_detected = True
             #   Reset time of last detection
             last_detection = rospy.Time.now().to_sec()
@@ -242,10 +278,10 @@ def imageReceived(ros_data):
             #   Check if the ball is reached
             if ( radius >= radius_threshold ):
                 #   The robot has reached the ball
-                ball_reached = True
+                ball_is_close = True
                 #robot_twist = Twist()
             else:
-                ball_reached = False
+                ball_is_close = False
     else:
         ball_detected = False
         robot_twist = Twist()
@@ -258,6 +294,7 @@ def imageReceived(ros_data):
 
 ##
 #   \brief retrieveNeckAngle is the ros subscriber callback which only saves the current neck_joint rotation angle
+#   \param joint_state the value of the interested neck joint
 def retrieveNeckAngle(joint_state):
     global neck_angle
     neck_angle = joint_state.set_point
@@ -391,8 +428,6 @@ class Rest(smach.State):
         #   Return 'rested' to change the state
         return 'rested'
 
-
-robot_controller = None
 ##
 #   \class FollowBall
 #   \brief This class defines the state of the state machine corresponding to the robot moving towards the detected ball.
@@ -408,16 +443,13 @@ class FollowBall(smach.State):
     ##
     #   \brief __init__ is the constructor for the class.
     #
-    #   This constructor initializes the outcomes and the input outout keys for this staste.
-    #   Additionally, it initializes the publisher for the robot velocity command.
+    #   This constructor initializes the outcomes and the input outout keys for this state.
     #
     def __init__(self):
             smach.State.__init__(self,
                                  outcomes=['turn_head', 'ball_lost', 'tired','stop_play'],
                                  input_keys=['follow_ball_fatigue_counter_in'],
                                  output_keys=['follow_ball_fatigue_counter_out'])
-
-            self.robot_controller = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
     ##
     #   \brief execute This function performs the behavior for the state
@@ -427,17 +459,24 @@ class FollowBall(smach.State):
     #
     #   This funtion makes the robot move towards the detected ball. To do so, it publishes the
     #   geometry_msgs/Twist message defined in the imageReceived callback.
-    #   Once the ball has been received, first it increases the fatigue counter as a new motion has been
+    #   It makes the robot to follow the ball until the ball is consider close to the robot and this
+    #   last one is also still. To satifly the first condition, the value of the dedicated boolean:
+    #   ball_is_close is checked. Secondly, for the other condition, both the linear and angular
+    #   speeds are consider to determine if the robot is still moving. If the ball is close to the
+    #   robot and the robot is not significantly moving than the ball is considered as reached.
+    #   Once the ball has been reached, first it increases the fatigue counter as a new motion has been
     #   completed, then it checks that the robot has not reached the fatigue threshold. In this case
     #   it returns 'turn_head' in other to chage the state into the TURN_HEAD state. On the other hand,
     #   if the level of fatigue has reached the threshold, then it returns 'tired' in order to change
     #   the state into TIRED.
+    #   On the other hand, if the balls disappears from the camera field of view, it chenges the state
+    #   with the transition 'ball_lost' in order to search for the ball in the state TURN_ROBOT.
     #   Finally, if the ball has not been detected for a time greater then the maximum_dead_time then
     #   it exit the state returning 'stop_play' changing the state into MOVE.
     #
     def execute(self, userdata):
         global ball_detected
-        global ball_reached
+        global ball_is_close
         global robot_twist
         global time_since
         global maximum_dead_time
@@ -449,7 +488,7 @@ class FollowBall(smach.State):
             if not ball_detected:
                 return 'ball_lost'
 
-            if ball_reached:
+            if ball_is_close:
                 # Evaluate if the robot is still
                 vels = math.sqrt( (robot_twist.linear.x*robot_twist.linear.x) + (robot_twist.angular.z*robot_twist.angular.z) )
                 if vels <= 0.05:
@@ -470,7 +509,7 @@ class FollowBall(smach.State):
         #   Stop play if the robot does not see ball for 5 sec or more
         print("Dead time : ", int(time_since), " [s]")
         #   Ensure no bugs from previous detection
-        ball_reached = False
+        ball_is_close = False
         ball_detected = False
         return 'stop_play'
 
@@ -488,7 +527,7 @@ class TurnHeadCounterClockWise(smach.State):
     ##
     #   \brief __init__ is the constructor for the class.
     #
-    #   This constructor initializes the outcomes and the input outout keys for this staste.
+    #   This constructor initialize the outcome for this state.
     #
     def __init__(self):
         smach.State.__init__(self, outcomes=['done'])
@@ -535,7 +574,7 @@ class TurnHeadClockWise(smach.State):
     ##
     #   \brief __init__ is the constructor for the class.
     #
-    #   This constructor initializes the outcomes and the input outout keys for this staste.
+    #   This constructor initializes the outcome for this state.
     #
     def __init__(self):
         smach.State.__init__(self, outcomes=['done'])
@@ -584,7 +623,7 @@ class SetHeadStraight(smach.State):
     ##
     #   \brief __init__ is the constructor for the class.
     #
-    #   This constructor initializes the outcomes and the input outout keys for this staste.
+    #   This constructor initializes the outcome for this state.
     #
     def __init__(self):
         smach.State.__init__(self, outcomes=['done'])
@@ -604,7 +643,7 @@ class SetHeadStraight(smach.State):
     #
     def execute(self, userdata):
         global ball_detected
-        global ball_reached
+        global ball_is_close
         global neck_angle
         global neck_controller
         global neck_controller_rate
@@ -617,36 +656,34 @@ class SetHeadStraight(smach.State):
             neck_controller_rate.sleep()
         #   Ensure no bud from previous detection
         ball_detected = False
-        ball_reached = False
+        ball_is_close = False
         return 'done'
 
-yaw = 0.0
-def clbk_odom(msg):
-    global yaw
 
-    pose = msg.pose.pose
-
-    # yaw
-    quaternion = (
-        msg.pose.pose.orientation.x,
-        msg.pose.pose.orientation.y,
-        msg.pose.pose.orientation.z,
-        msg.pose.pose.orientation.w)
-    euler = transformations.euler_from_quaternion(quaternion)
-    yaw = euler[2]
 ##
 #   \class TurnRobot
-#   \brief This class defines the state of the state machine corresponding to the robot turning the head back to the normal orientation.
+#   \brief This class defines the state of the state machine corresponding to the robot turning on itself.
+#
+#   This class inheritates from smach and it consist of a state in the state machine. The state
+#   that is represented here is a substate of the state Play. In this state the robot turns on itself looking
+#   for the ball that just disappeared from its camera field of view.
+#   As part of the smach class, this class has the member function execute() providing the intended behavior.
+#   For more details about the content of this class, see the member function documentation.
 #
 class TurnRobot(smach.State):
     ##
     #   \brief __init__ is the constructor for the class.
     #
-    #   This constructor initializes the outcomes and the input outout keys for this staste.
+    #   This constructor initializes the outcomes for this state.
     #
     def __init__(self):
         smach.State.__init__(self, outcomes=['full_turn', 'ball_found'])
 
+    ##
+    #   \brief normalizeAngle given an angle, returns its corresponding value in the interval [-&pi, &pi]
+    #
+    #   This constructor initializes the outcomes for this state.
+    #
     def normalizeAngle(self, angle):
         if(math.fabs(angle) > math.pi):
             angle = angle - (2 * math.pi * angle) / (math.fabs(angle))
@@ -654,9 +691,12 @@ class TurnRobot(smach.State):
 
     ##
     #   \brief execute This function performs the behavior for the state
-    #   \param userdata Is the structure containing the data shared among states, it is used
-    #   to pass the level of fatigue among states.
+    #   \param userdata Is the structure containing the data shared among states, here unused.
     #   \return a string consisting of the state outcome
+    #
+    #   This function simply makes the robot tu turn at the most of 360°. If it reaches this
+    #   degree of rotation, then it uses the transition 'full_turn'. In the case it detects the ball while
+    #   turning it returns the transition 'ball_found'. However, bot the transition lead to the state FOLLOW_BALL.
     #
     def execute(self, userdata):
         global yaw
