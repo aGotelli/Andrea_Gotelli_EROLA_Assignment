@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_xacro">
     <xacro:include filename="$(find robot_simulation_description)/urdf/robot.gazebo"/>
-					
+
     <xacro:property name="length_wheel" value="0.04" />
     <xacro:property name="radius_wheel" value="0.1" />
 
@@ -18,8 +18,8 @@
             <cylinder length="${length_wheel}" radius="${radius_wheel}"/>
         </geometry>
     </xacro:macro>
-	
-	
+
+
     <material name="black">
         <color rgba="0.0 0.0 0.0 1.0"/>
     </material>
@@ -168,6 +168,30 @@
         </inertial>
     </link>
 
+    <link name="hokuyo_link">
+        <collision>
+          <origin xyz="0 0 0.025" rpy="0 0 0"/>
+          <geometry>
+      <box size="0.05 0.05 0.05"/>
+          </geometry>
+        </collision>
+        <visual>
+          <origin xyz="0 0 0.025" rpy="0 0 0"/>
+          <geometry>
+      <box size="0.05 0.05 0.05"/>
+          </geometry>
+          <material name="red">
+      <color rgba="1 0 0 1"/>
+          </material>
+        </visual>
+        <inertial>
+          <mass value="1e-5" />
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+        </inertial>
+    </link>
+
+
 <!--###########################################################################
                                     THE JOINTS
     ########################################################################### -->
@@ -181,8 +205,8 @@
         <limit effort="10000" velocity="1000"/>
         <joint_properties damping="1.0" friction="1.0"/>
     </joint>
-  
-  
+
+
     <joint name="joint_left_wheel" type="continuous">
         <origin rpy="0 0 0" xyz="-0.05 -0.15 0"/>
         <child link="link_left_wheel"/>
@@ -201,7 +225,7 @@
         <limit effort="10000" velocity="1000"/>
         <joint_properties damping="1.0" friction="1.0"/>
     </joint>
-  
+
     <!--    Joint form the neck to the camera  -->
     <joint name="camera_joint" type="fixed">
         <axis xyz="0 1 0" />
@@ -222,6 +246,13 @@
             <mechanicalInterface>1</mechanicalInterface>
         </actuator>
     </transmission>
+
+    <joint name="hokuyo_joint" type="fixed">
+        <axis xyz="0 1 0" />
+        <origin xyz="0.28 0 0.05" rpy="0 0 0"/>
+        <parent link="link_chassis"/>
+        <child link="hokuyo_link"/>
+   </joint>
 
 
 

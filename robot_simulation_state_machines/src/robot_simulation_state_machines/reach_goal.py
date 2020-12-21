@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+
+
+
 ## @package robot_simulation_state_machines
 #   \file reach_goal.py
 #   \brief This file contains the a function allowing to simple call to the action service.
@@ -9,21 +13,19 @@
 #   \details
 #
 #   Subscribes to: <BR>
-#       ° [None]
+#        [None]
 #
 #   Publishes to: <BR>
-#       ° [None]
+#        [None]
 #
 #   Service : <BR>
-#       ° /reaching_goal as client, it asks for reach a specific location.
+#        /reaching_goal as client, it asks for reach a specific location.
 #
 #   Description :
 #
 #   This file contains an action service client which calls and eventually waits for the action service
 #   result. This choice was made in order to make this function available in more moduls.
 #
-
-#!/usr/bin/env python3
 # This Python file uses the following encoding: utf-8
 
 import roslib
@@ -31,12 +33,15 @@ import rospy
 
 # Ros Messages
 from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 
 
 
 # Brings in the SimpleActionClient
 import actionlib
 import robot_simulation_messages.msg
+#import move_base_msgs.msg
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
 
 
@@ -45,7 +50,8 @@ import robot_simulation_messages.msg
 #   \brief Creates the SimpleActionClient, passing the type of the action (PlanningAction) to the constructor.
 #
 #   It is defined as global in order to be used with a global function
-planning_client = actionlib.SimpleActionClient('reaching_goal', robot_simulation_messages.msg.PlanningAction)
+#planning_client = actionlib.SimpleActionClient('/move_base', move_base_msgs.msg.MoveBaseAction)
+planning_client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
 
 ##
 #   \brief reachPosition Is a global function which calls the appropriate action service
@@ -67,9 +73,27 @@ def reachPosition(pose, wait=False, verbose=False):
     #   listening for goals.
     planning_client.wait_for_server()
     #   Creates a goal to send to the action server.
-    goal = robot_simulation_messages.msg.PlanningGoal(pose)
+    #goal = robot_simulation_messages.msg.PlanningGoal(pose)
+    #posestmp = PoseStamped()
+    #posestmp.pose = pose
+    #goal = move_base_msgs.msg.MoveBaseActionGoal(posestmp)
     #   Sends the goal to the action server.
-    planning_client.send_goal(goal)
+    #planning_client.send_goal(goal)
     #   Waits for the server to finish performing the action.
+    #goal = move_base_msgs.msg.MoveBaseActionGoal()
+
+    #goal.target_pose.header.frame_id = "link_chassis"
+    #goal.target_pose.header.stamp = rospy.Time.now()
+
+    #goal.target_pose.pose.position.x = pose.position.x
+    #goal.target_pose.pose.orientation.w = pose.orientation.y
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose.position.x = pose.position.x
+    goal.target_pose.pose.orientation.w = pose.position.y
+
+    planning_client.send_goal(goal)
+
     if wait:
         planning_client.wait_for_result()

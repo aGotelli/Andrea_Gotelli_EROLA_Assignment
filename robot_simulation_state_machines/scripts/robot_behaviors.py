@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 ## @package robot_simulation_state_machines
 #   \file robot_behaviors.py
 #   \brief This file contains the state machine for the states defining the robot behaviors.
@@ -16,16 +18,16 @@
 #   \details
 #
 #   Subscribes to: <BR>
-#       ° camera1/image_raw/compressed
-#       ° joint_neck_position_controller/state
-#       ° odom
+#        camera1/image_raw/compressed
+#        joint_neck_position_controller/state
+#        odom
 #
 #   Publishes to: <BR>
-#       ° joint_neck_position_controller/command
-#       ° cmd_vel
+#        joint_neck_position_controller/command
+#        cmd_vel
 #
 #   Service : <BR>
-#       ° [None]
+#        [None]
 #
 #   Description :
 #
@@ -37,9 +39,12 @@
 #   The states are defined in the respective classes, and the transistions are automatically performed
 #   by the state machine from the smach libraries.
 #
-
-#!/usr/bin/env python3
 # This Python file uses the following encoding: utf-8
+
+
+
+# /move_base_simple/goal
+
 
 import roslib
 import rospy
@@ -183,6 +188,8 @@ def odometryReceived(msg):
         msg.pose.pose.orientation.w)
     euler = transformations.euler_from_quaternion(quaternion)
     yaw = euler[2]
+
+def mapReceived(map_mags) :
 
 
 ##
@@ -696,7 +703,7 @@ class TurnRobot(smach.State):
     #   \param userdata Is the structure containing the data shared among states, here unused.
     #   \return a string consisting of the state outcome
     #
-    #   This function simply makes the robot tu turn at the most of 360°. If it reaches this
+    #   This function simply makes the robot tu turn at the most of 360. If it reaches this
     #   degree of rotation, then it uses the transition 'full_turn'. In the case it detects the ball while
     #   turning it returns the transition 'ball_found'. However, bot the transition lead to the state FollowBall.
     #   In the case the maximum time without a ball detection is expired, it returns 'stop_play' in order to

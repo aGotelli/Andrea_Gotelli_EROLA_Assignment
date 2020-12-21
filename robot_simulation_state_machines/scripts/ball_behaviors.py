@@ -25,7 +25,7 @@
 #   This simple state machine as only two states, which are defined in the homonym class
 #
 
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # This Python file uses the following encoding: utf-8
 
 import roslib
@@ -261,4 +261,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

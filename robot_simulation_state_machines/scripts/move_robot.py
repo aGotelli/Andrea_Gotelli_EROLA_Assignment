@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 ## @package robot_simulation_state_machines
 #   \file move_robot.py
 #   \brief This file contains the action service provider for moving the robot.
@@ -21,10 +23,6 @@
 #
 #   This file contains the action service provider to move the robot to a desired position.
 #
-
-
-
-#! /usr/bin/env python3
 # import ros stuff
 import rospy
 from sensor_msgs.msg import LaserScan
