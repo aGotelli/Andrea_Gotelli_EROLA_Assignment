@@ -3,6 +3,8 @@
 
    <node pkg="robot_simulation_state_machines" type="robot_behaviors.py" name="robot_behaviors"  output="screen"/>
 
+
+    <node pkg="robot_simulation_state_machines" type="robot_simulation_state_machines_person" name="person" />
 </launch>
 
 

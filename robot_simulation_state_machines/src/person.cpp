@@ -1,22 +1,35 @@
 #include "ros/ros.h"
-#include "beginner_tutorials/AddTwoInts.h"
+#include <robot_simulation_messages/PersonCommand.h>
+#include <algorithm>
+#include <ctime>
+#include <cstdlib>
 
-bool add(beginner_tutorials::AddTwoInts::Request  &req,
-         beginner_tutorials::AddTwoInts::Response &res)
+static std::vector<std::string> rooms {
+  "entrance",
+  "closet",
+  "living_room",
+  "kitchen",
+  "bathroom",
+  "bedroom"
+};
+
+bool room_selection(robot_simulation_messages::PersonCommand::Request  &req,
+         robot_simulation_messages::PersonCommand::Response &res)
 {
-  res.sum = req.a + req.b;
-  ROS_INFO("request: x=%ld, y=%ld", (long int)req.a, (long int)req.b);
-  ROS_INFO("sending back response: [%ld]", (long int)res.sum);
+  std::random_shuffle(rooms.begin(), rooms.end());
+  res.room = rooms.front();
   return true;
 }
 
 int main(int argc, char **argv)
 {
+  std::srand ( unsigned ( std::time(0) ) );
+
   ros::init(argc, argv, "person");
   ros::NodeHandle nh;
 
-  ros::ServiceServer service = nh.advertiseService("add_two_ints", add);
-  ROS_INFO("Ready to add two ints.");
+  ros::ServiceServer service = nh.advertiseService("/person_decision", room_selection);
+
   ros::spin();
 
   return 0;

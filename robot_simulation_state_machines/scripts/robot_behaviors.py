@@ -78,6 +78,8 @@ import cv2
 
 from robot_simulation_state_machines.reach_goal import reachPosition
 from robot_simulation_state_machines.reach_goal import planning_client
+from robot_simulation_messages.srv import PersonCommand
+from explore_lite.msg import ExploreAction, ExploreGoal
 
 """
     Problems:
@@ -85,6 +87,18 @@ from robot_simulation_state_machines.reach_goal import planning_client
         -> Il sistema dovrebbe capire quando il target è irraggiungibile
         -> Dopo aver registrato la palla, il robot forse tornare al target prestabilito oppure un altro random?
         -> If, for some reason, it loses the ball while tracking then its stuck
+        -> Ci sta un po a assumere positione raggiunta
+
+
+    Questions:
+        -> Why so slow in U turn
+        -> Qualche volta invece di andare indietro va avanti e se ne frega altamente
+        -> How to speed up?
+        -> How to correctly swet color ranges
+        -> How to move classes in files... Problems with global and initializations...
+        -> Is it ok to have two states referring to the same class?
+        -> How to increase the level of fatigue<? each time?
+        -> Is it correct?
 """
 
 ##
@@ -273,6 +287,7 @@ def registerBall():
             ball[1].registered = True
             ball[1].pose = robot_pose
             print("The ", ball[1].associated_room , " is now available.")
+            return ball[1].associated_room
 
 
 ##
@@ -421,12 +436,19 @@ class Move(smach.State):
     #
     def __init__(self):
             smach.State.__init__(self,
-                                 outcomes=['tired','tracking'],
+                                 outcomes=['tired','tracking', 'play'],
                                  input_keys=['move_fatigue_counter_in'],
                                  output_keys=['move_fatigue_counter_out'])
             self.target = Pose()
             self.targetSeemsReacheable = True
             self.prev_dist = 0.0
+            self.time_to_play = False
+            self.sub = rospy.Subscriber("person_willing",String, self.commandReceived,  queue_size=1)
+
+
+    def commandReceived(self, msg):
+        print("Received command to play")
+        self.time_to_play = True
 
     def newTarget(self):
         self.targetSeemsReacheable = True
@@ -438,7 +460,7 @@ class Move(smach.State):
         #   Call the service to reach this position
         self.target = random_
         self.prev_dist = compEuclidDist(random_, robot_pose)
-        print("Prev dist: ", self.prev_dist)
+
         reachPosition(random_, verbose=True)
 
 
@@ -476,20 +498,13 @@ class Move(smach.State):
         global planning_client
         global time_before_change_target
         #   Declare a geometry_msgs/Pose for the random position
-        random_ = Pose()
-        #   Define the random components (x, y) of this random position
-        #random_.position.x = random.randint(-width/2, width/2)
-        #random_.position.y = random.randint(-height/2, height/2)
-        random_.position.x = -6
-        random_.position.y = 0
-        #   Call the service to reach this position
-        reachPosition(random_, verbose=True)
-        self.target = random_
-        self.prev_dist = compEuclidDist(random_, robot_pose)
-        print("Prev dist: ", self.prev_dist)
+        self.newTarget()
         timer = rospy.Timer(rospy.Duration(time_before_change_target), self.checkReachability)
         #   Main loop
         while not rospy.is_shutdown():
+            if self.time_to_play:
+                timer.shutdown()
+                return 'play'
             #   Check if the person has commanded play
             if ball_detected :
                 print("Ball detected stopping the robot!")
@@ -542,8 +557,8 @@ class TrackBall(smach.State):
     #
     def __init__(self):
             smach.State.__init__(self,
-                                 outcomes=['registered'],
-                                 input_keys=['track_ball_fatigue_counter_in'],
+                                 outcomes=['registered', 'room_founded'],
+                                 input_keys=['track_ball_fatigue_counter_in','track_room_to_find'],
                                  output_keys=['track_ball_fatigue_counter_out'])
 
     ##
@@ -590,13 +605,18 @@ class TrackBall(smach.State):
                     #   Make sure the robot stays still
                     null_twist = Twist()
                     robot_controller.publish(null_twist)
-                    registerBall()
+                    founded_room = registerBall()
                     print("Position Registered")
                     #   Set to false for avoid bug
                     ball_is_close = False
                     ball_detected = False
-                    rospy.sleep(1)
-                    return 'registered'
+                    print()
+                    if founded_room == userdata.track_room_to_find:
+                        print("The ", founded_room, " is reached")
+                        return 'room_founded'
+                    else:
+                        print("Found ", founded_room, " but ", userdata.track_room_to_find, " is the room of interest")
+                        return 'registered'
 
 
 
@@ -641,14 +661,13 @@ class Rest(smach.State):
 
 
 
-class Find(smach.state)
+class Find(smach.State):
     ##
     #   \brief The __init__ constructor initializes the state outcome and input output keys
     def __init__(self):
-            smach.State.__init__(self,
-                                 outcomes=['rested'],
-                                 input_keys=['rest_fatigue_counter_in'],
-                                 output_keys=['rest_fatigue_counter_out'])
+            smach.State.__init__(self, outcomes=['track'])
+
+            self.explore_client = actionlib.SimpleActionClient('explore_action_server',ExploreAction)
     ##
     #   \brief  The member function executing the state behavior
     #   \param userdata Is the structure containing the data shared among states.
@@ -656,8 +675,51 @@ class Find(smach.state)
     #
     #
     def execute(self, userdata):
+        global ball_detected
+        self.explore_client.wait_for_server()
+
+        goal = ExploreGoal()
+
+        self.explore_client.send_goal(goal)
+        while not rospy.is_shutdown():
+            if ball_detected:
+                print("A new ball has been detected!")
+                self.explore_client.cancel_all_goals()
+                return 'track'
 
 
+class Interact(smach.State):
+    def __init__(self):
+        smach.State.__init__(self,
+                             outcomes=['find'],
+                             input_keys=['interact_fatigue_counter_in'],
+                             output_keys=['interact_fatigue_counter_out','room_to_find'])
+
+        self.person_srv_client = rospy.ServiceProxy('/person_decision', PersonCommand)
+
+    def execute(self, userdata):
+        global colors
+        while not rospy.is_shutdown():
+            person_pose = Pose()
+            person_pose.position.x = -5
+            person_pose.position.y = 8
+            print("Reaching person position")
+            reachPosition(person_pose, wait=True)
+
+            rospy.wait_for_service('/person_decision')
+            print("Waitin for a command from the person")
+            desired = self.person_srv_client()
+            print("Command received")
+            available_room = False
+            for ball in colors :
+                if ball[1].associated_room == desired.room :
+                    available_room = True
+                    print("Going to room ", ball[1].associated_room )
+                    reachPosition(ball[1].pose)
+            if not available_room :
+                print("The room ",desired.room ," is not available yet...")
+                userdata.room_to_find = ball[1].associated_room
+                return 'find'
 ##
 #   \brief __main__ intializes the ros node and the smach state machine
 #
@@ -682,7 +744,7 @@ def main():
     rospy.init_node('robot_behavior_state_machine')
 
     #   Sleep for waiting the end of all the Initialization logs
-    rospy.sleep(4)
+    rospy.sleep(0.5)
     print("Starting the state machines")
     #   Initialize the seed
     random.seed()
@@ -740,7 +802,7 @@ def main():
         # Add states to the container
 
         #   Create the sub state machine for the normal behavior
-        sub_sm = smach.StateMachine(outcomes=['sleepy_robot'],
+        sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'time_to_play'],
                                     output_keys=['sub_sm_fatigue_level'],
                                     input_keys=['sub_sm_fatigue_level'])
 
@@ -748,19 +810,22 @@ def main():
 
             smach.StateMachine.add('MOVE', Move(),
                                    transitions={'tired':'sleepy_robot',
-                                                'tracking':'TRACK_BALL'},
+                                                'tracking':'TRACK_BALL',
+                                                'play':'time_to_play'},
                                    remapping={'move_fatigue_counter_in':'sub_sm_fatigue_level',
                                               'move_fatigue_counter_out':'sub_sm_fatigue_level'})
 
             smach.StateMachine.add('TRACK_BALL', TrackBall(),
-                                   transitions={'registered':'MOVE'},
+                                   transitions={'registered':'MOVE',
+                                                'room_founded':'MOVE'},
                                    remapping={'track_ball_fatigue_counter_in':'sub_sm_fatigue_level',
                                               'track_ball_fatigue_counter_out':'sub_sm_fatigue_level'})
 
 
 
         smach.StateMachine.add('NORMAL', sub_sm,
-                               transitions={'sleepy_robot':'REST'},
+                               transitions={'sleepy_robot':'REST',
+                                            'time_to_play':'PLAY'},
                                remapping={'sub_sm_fatigue_level':'fatigue_level',
                                           'sub_sm_fatigue_level':'fatigue_level'})
 
@@ -768,6 +833,34 @@ def main():
                                transitions={'rested':'NORMAL'},
                                remapping={'rest_fatigue_counter_in':'fatigue_level',
                                           'rest_fatigue_counter_out':'fatigue_level'})
+
+        play_sub_sm = smach.StateMachine(outcomes=['sleepy_robot'],
+                              output_keys=['play_sub_sm_fatigue_level'],
+                              input_keys=['play_sub_sm_fatigue_level'])
+
+        with play_sub_sm :
+
+            smach.StateMachine.add('INTERACT', Interact(),
+                                   transitions={'find':'FIND'},
+                                   remapping={'interact_fatigue_counter_in':'play_sub_sm_fatigue_level',
+                                              'interact_fatigue_counter_out':'play_sub_sm_fatigue_level',
+                                              'interact_ball_to_find':'room_to_find'})
+
+            smach.StateMachine.add('FIND', Find(),
+                                   transitions={'track':'TRACK_BALL'})
+
+            smach.StateMachine.add('TRACK_BALL', TrackBall(),
+                                   transitions={'registered':'FIND',
+                                                'room_founded':'INTERACT'},
+                                   remapping={'track_ball_fatigue_counter_in':'play_sub_sm_fatigue_level',
+                                              'track_ball_fatigue_counter_out':'play_sub_sm_fatigue_level',
+                                              'track_room_to_find':'room_to_find'})
+
+        smach.StateMachine.add('PLAY', play_sub_sm,
+                              transitions={'sleepy_robot':'REST'},
+                              remapping={'play_sub_sm_fatigue_level':'fatigue_level',
+                                         'play_sub_sm_fatigue_level':'fatigue_level'})
+
 
 
 

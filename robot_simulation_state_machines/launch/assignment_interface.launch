@@ -45,5 +45,9 @@
     </include>
 
 
+    <include file="$(find explore_lite)/launch/explore.launch">
+    </include>
+
+
 
 </launch>

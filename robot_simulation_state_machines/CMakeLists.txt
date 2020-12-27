@@ -25,7 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
   planning
   move_base_msgs
   gmapping
-
+  explore_lite
 )
 
 ## System dependencies are found with CMake's conventions
@@ -148,8 +148,10 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/state_machine_node.cpp)
-
+add_executable(${PROJECT_NAME}_person src/person.cpp)
+target_link_libraries(${PROJECT_NAME}_person
+  ${catkin_LIBRARIES}
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
