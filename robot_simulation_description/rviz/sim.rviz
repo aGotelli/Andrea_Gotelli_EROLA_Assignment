@@ -176,6 +176,14 @@ Visualization Manager:
       Topic: /move_base/NavfnROS/plan
       Unreliable: false
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /explore/frontiers
+      Name: MarkerArray
+      Namespaces:
+        frontiers: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -204,7 +212,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 19.046451568603516
+      Distance: 20.722087860107422
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
