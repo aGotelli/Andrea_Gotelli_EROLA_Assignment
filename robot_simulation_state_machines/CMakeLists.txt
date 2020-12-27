@@ -22,14 +22,10 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   cv_bridge
   image_transport
-<<<<<<< Updated upstream
-  imutils
   planning
   move_base_msgs
-=======
-  planning
   gmapping
->>>>>>> Stashed changes
+
 )
 
 ## System dependencies are found with CMake's conventions

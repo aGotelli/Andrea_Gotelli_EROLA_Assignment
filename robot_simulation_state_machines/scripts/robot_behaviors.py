@@ -79,6 +79,14 @@ import cv2
 from robot_simulation_state_machines.reach_goal import reachPosition
 from robot_simulation_state_machines.reach_goal import planning_client
 
+"""
+    Problems:
+        -> Se lo vede di lato ed è dietro ad angolo, ci si schianta contro allalgolo e si blocca
+        -> Il sistema dovrebbe capire quando il target è irraggiungibile
+        -> Dopo aver registrato la palla, il robot forse tornare al target prestabilito oppure un altro random?
+        -> If, for some reason, it loses the ball while tracking then its stuck
+"""
+
 ##
 #   \brief Define the width of the arena.
 width = 0
@@ -149,9 +157,12 @@ detection_time = 0.0
 #           reference value to assume that the ball is "close" to the robot.
 radius_threshold = 100
 
+time_before_change_target = 0.0
+
 ##
 #   \brief Is the robot heading
 yaw = 0.0
+robot_pose = Pose()
 
 ##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
@@ -177,9 +188,10 @@ def isTired(fatigue_level):
 #
 def odometryReceived(msg):
     global yaw
+    global robot_pose
 
     pose = msg.pose.pose
-
+    robot_pose = msg.pose.pose
     # yaw
     quaternion = (
         msg.pose.pose.orientation.x,
@@ -189,7 +201,78 @@ def odometryReceived(msg):
     euler = transformations.euler_from_quaternion(quaternion)
     yaw = euler[2]
 
-def mapReceived(map_mags) :
+class ColorDetails:
+    def __init__(self, lower, upper, circle, room):
+        self.lower = lower
+        self.upper = upper
+        self.circle = circle
+        self.in_cam_view = False
+        self.registered = False
+        self.pose = Pose()
+        self.associated_room = room
+
+#blue = ColorDetails( (210,60,60), (250, 100, 100), (255, 0, 0) )
+blue = ColorDetails( (60,30,30), (255,120,80), (255, 0, 0), 'entrance' )
+red = ColorDetails( (20,20,100), (100,50,50), (0, 0, 255), 'closet' )
+green = ColorDetails( (50, 50, 20), (70, 255, 255), (0, 255, 0), 'living_room' )   #ok
+yellow = ColorDetails( (20, 100, 100), (30, 255, 255), (0, 251, 253), 'kitchen' )  #ok
+orange = ColorDetails( (5, 50, 50), (15, 255, 255), (10, 135, 255), 'bathroom' )
+black = ColorDetails( (0,0,0), (20,20,20), (0, 0, 0), 'bedroom' )  #ok
+
+colors = np.array([('green', green), ('yellow', yellow), ('black', black) ])
+#lower_blue = np.array(140,100, 140)
+#upper_blue = np.array(150,255,255)
+
+def findBallIn(hsv_image, index = 0):
+    global colors
+
+    color = colors[index][0]
+    lowerLimit = colors[index][1].lower
+    upperLimit = colors[index][1].upper
+    circle_color = colors[index][1].circle
+
+    mask = cv2.inRange(hsv_image, lowerLimit, upperLimit)
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+
+    #   If ball is marker ad registerd we don't need to porcess it again
+    if colors[index][1].registered :
+        colors[index][1].in_cam_view = False
+        ball_is_close = False
+        ball_detected = False
+        cnts = np.array([])
+        color = 'none'
+        circle_color = (255, 255, 255)
+        return cnts, color, circle_color
+    else :
+        if len(cnts) > 0:
+            #   Mark the ball as currently seen
+            colors[index][1].in_cam_view = True
+            return cnts, color, circle_color
+        elif colors[index][1].in_cam_view :
+            #   Set back the ball as not currently in the camera field of view
+            colors[index][1].in_cam_view = False
+
+    if (index == len(colors) - 1):
+        color = 'none'
+        circle_color = (255, 255, 255)
+        return cnts, color, circle_color
+
+    index = index +1
+    return findBallIn(hsv_image, index)
+
+
+def registerBall():
+    global colors
+
+    for ball in colors :
+        if ball[1].in_cam_view :
+            ball[1].registered = True
+            ball[1].pose = robot_pose
+            print("The ", ball[1].associated_room , " is now available.")
 
 
 ##
@@ -233,16 +316,12 @@ def imageReceived(ros_data):
     #### direct conversion to CV2 ####
     np_arr = np.frombuffer(ros_data.data, np.uint8)
     image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
-    greenLower = (50, 50, 20)
-    greenUpper = (70, 255, 255)
+
     blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, greenLower, greenUpper)
-    mask = cv2.erode(mask, None, iterations=2)
-    mask = cv2.dilate(mask, None, iterations=2)
-    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-                            cv2.CHAIN_APPROX_SIMPLE)
-    cnts = imutils.grab_contours(cnts)
+
+    (cnts, color, circle_color) = findBallIn(hsv)
+    #print("Founded : ", color)
     center = None
     # only proceed if at least one contour was found
     if len(cnts) > 0:
@@ -262,10 +341,10 @@ def imageReceived(ros_data):
             # draw the circle and centroid on the frame,
             # then update the list of tracked points
             cv2.circle(image_np, (int(x), int(y)), int(radius),
-                       (0, 255, 255), 2)
-            cv2.circle(image_np, center, 5, (0, 0, 255), -1)
+                       circle_color, 2)
+            cv2.circle(image_np, center, 5, (255, 255, 255), -1)
             robot_twist = Twist()
-            robot_twist.angular.z = 0.005*(center[0]-400)
+            robot_twist.angular.z = -0.005*(center[0]-400)
             robot_twist.linear.x = 0.02*(110-radius)
 
             scale = 1
@@ -309,6 +388,18 @@ def retrieveNeckAngle(joint_state):
 
 
 
+
+
+
+def compEuclidDist(target, current):
+    delta_x = target.position.x - current.position.x
+    delta_y = target.position.y - current.position.y
+    dist = math.sqrt( delta_x*delta_x + delta_y*delta_y )
+    return dist
+
+
+
+
 ##
 #   \class Move
 #   \brief This class defines the state of the state machine corresponding to the robot randomly moving
@@ -329,12 +420,40 @@ class Move(smach.State):
     #   This member function initializes the state machine state. It follows the conventions for smach.
     #
     def __init__(self):
-
             smach.State.__init__(self,
-                                 outcomes=['tired','playing'],
+                                 outcomes=['tired','tracking'],
                                  input_keys=['move_fatigue_counter_in'],
                                  output_keys=['move_fatigue_counter_out'])
+            self.target = Pose()
+            self.targetSeemsReacheable = True
+            self.prev_dist = 0.0
 
+    def newTarget(self):
+        self.targetSeemsReacheable = True
+        #   Declare a geometry_msgs/Pose for the random position
+        random_ = Pose()
+        #   Define the random components (x, y) of this random position
+        random_.position.x = random.randint(-width/2, width/2)
+        random_.position.y = random.randint(-height/2, height/2)
+        #   Call the service to reach this position
+        self.target = random_
+        self.prev_dist = compEuclidDist(random_, robot_pose)
+        print("Prev dist: ", self.prev_dist)
+        reachPosition(random_, verbose=True)
+
+
+
+
+    def checkReachability(self, event):
+        global robot_pose
+        curr_dist = compEuclidDist(self.target, robot_pose)
+        print("Prev dist: ", self.prev_dist)
+        print("Curr dist: ", curr_dist)
+        if curr_dist >= self.prev_dist :
+            self.targetSeemsReacheable = False
+        else:
+            self.prev_dist = curr_dist
+            self.targetSeemsReacheable = True
 
     ##
     #   \brief execute is main member function of the class, containing the intended behavior
@@ -355,13 +474,20 @@ class Move(smach.State):
     def execute(self, userdata):
         global ball_detected
         global planning_client
+        global time_before_change_target
         #   Declare a geometry_msgs/Pose for the random position
         random_ = Pose()
         #   Define the random components (x, y) of this random position
-        random_.position.x = random.randint(-width/2, width/2)
-        random_.position.y = random.randint(-height/2, height/2)
+        #random_.position.x = random.randint(-width/2, width/2)
+        #random_.position.y = random.randint(-height/2, height/2)
+        random_.position.x = -6
+        random_.position.y = 0
         #   Call the service to reach this position
         reachPosition(random_, verbose=True)
+        self.target = random_
+        self.prev_dist = compEuclidDist(random_, robot_pose)
+        print("Prev dist: ", self.prev_dist)
+        timer = rospy.Timer(rospy.Duration(time_before_change_target), self.checkReachability)
         #   Main loop
         while not rospy.is_shutdown():
             #   Check if the person has commanded play
@@ -370,10 +496,16 @@ class Move(smach.State):
                 #   Stop the robot right there
                 planning_client.cancel_all_goals()
                 #   Return 'plying' to change the state
-                return 'playing'
+                timer.shutdown()
+                return 'tracking'
             else :
+                if not self.targetSeemsReacheable:
+                    print("Target seems impossible to reach")
+                    print("Computing a new target")
+                    self.newTarget()
                 #   If none of the previous was true, then continue with the Move behavior
-                if planning_client.get_result() :
+                if planning_client.get_result():
+                    print("Reached the position!")
                     #   Increment the level of the robot fatigue
                     userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
                     #   Print a log to show the level of fatigue
@@ -383,18 +515,88 @@ class Move(smach.State):
                         #   Print a log to inform about the fact that the robot is tired
                         print('Robot is tired of moving...')
                         #   Return 'tired' to change the state
+                        timer.shutdown()
                         return 'tired'
                     else:
                         print("Continuing to move")
-                        #   Declare a geometry_msgs/Pose for the random position
-                        random_ = Pose()
-                        #   Define the random components (x, y) of this random position
-                        random_.position.x = random.randint(-width/2, width/2)
-                        random_.position.y = random.randint(-height/2, height/2)
-                        #   Call the service to reach this position
-                        reachPosition(random_, verbose=True)
+                        self.newTarget()
 
 
+
+##
+#   \class TrackBall
+#   \brief This class defines the state of the state machine corresponding to the robot moving towards the detected ball.
+#
+#   This class inheritates from smach and it consist of a state in the state machine. The state
+#   that is represented here is a substate of the state Play. In this state the robot moves towards
+#   the ball that has beed detected. This is done by simply publishing the twist that has been
+#   computed in the callback.
+#   As part of the smach class, this class has the member function execute() providing the intended behavior.
+#   For more details about the content of this class, see the member function documentation.
+#
+class TrackBall(smach.State):
+    ##
+    #   \brief __init__ is the constructor for the class.
+    #
+    #   This constructor initializes the outcomes and the input outout keys for this state.
+    #
+    def __init__(self):
+            smach.State.__init__(self,
+                                 outcomes=['registered'],
+                                 input_keys=['track_ball_fatigue_counter_in'],
+                                 output_keys=['track_ball_fatigue_counter_out'])
+
+    ##
+    #   \brief execute This function performs the behavior for the state
+    #   \param userdata Is the structure containing the data shared among states, it is used
+    #   to pass the level of fatigue among states.
+    #   \return a string consisting of the state outcome
+    #
+    #   This funtion makes the robot move towards the detected ball. To do so, it publishes the
+    #   geometry_msgs/Twist message defined in the imageReceived() callback.
+    #   It makes the robot to follow the ball until the ball is consider close to the robot and this
+    #   last one is also still. To satifly the first condition, the value of the dedicated boolean:
+    #   ball_is_close is checked. Secondly, for the other condition, both the linear and angular
+    #   speeds are consider to determine if the robot is still moving. If the ball is close to the
+    #   robot and the robot is not significantly moving than the ball is considered as reached.
+    #   Once the ball has been reached, first it increases the fatigue counter as a new motion has been
+    #   completed, then it checks that the robot has not reached the fatigue threshold. In this case
+    #   it returns 'turn_head' in other to chage the state into the TURN_HEAD_COUNTERCLOCKWISE state, described in the
+    #   TurnHeadCounterClockWise class. On the other hand, if the level of fatigue has reached the threshold,
+    #   then it returns 'tired' in order to change the state into REST, represented in Rest.
+    #   On the other hand, if the balls disappears from the camera field of view, it changes the state
+    #   with the transition 'ball_lost' in order to search for the ball in the state TURN_ROBOT, see TurnRobot.
+    #   Finally, if the ball has not been detected for a time greater then the maximum_dead_time then
+    #   it exit the state returning 'stop_play' changing the state into MOVE, see Move.
+    #
+    def execute(self, userdata):
+        global ball_detected
+        global ball_is_close
+        global robot_twist
+        global time_since
+        global maximum_dead_time
+        global robot_controller
+
+        while not rospy.is_shutdown():
+            robot_controller.publish(robot_twist)
+            if ball_is_close:
+                # Evaluate if the robot is still
+                vels = math.sqrt( (robot_twist.linear.x*robot_twist.linear.x) + (robot_twist.angular.z*robot_twist.angular.z) )
+                if vels <= 0.05:
+                    print("Ball Reached")
+                    #   Increment the counter for the fatigue as the robot has moved
+                    userdata.track_ball_fatigue_counter_out = userdata.track_ball_fatigue_counter_in + 1
+                    print('Level of fatigue : ', userdata.track_ball_fatigue_counter_in)
+                    #   Make sure the robot stays still
+                    null_twist = Twist()
+                    robot_controller.publish(null_twist)
+                    registerBall()
+                    print("Position Registered")
+                    #   Set to false for avoid bug
+                    ball_is_close = False
+                    ball_detected = False
+                    rospy.sleep(1)
+                    return 'registered'
 
 
 
@@ -437,306 +639,23 @@ class Rest(smach.State):
         #   Return 'rested' to change the state
         return 'rested'
 
-##
-#   \class FollowBall
-#   \brief This class defines the state of the state machine corresponding to the robot moving towards the detected ball.
-#
-#   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is a substate of the state Play. In this state the robot moves towards
-#   the ball that has beed detected. This is done by simply publishing the twist that has been
-#   computed in the callback.
-#   As part of the smach class, this class has the member function execute() providing the intended behavior.
-#   For more details about the content of this class, see the member function documentation.
-#
-class FollowBall(smach.State):
+
+
+class Find(smach.state)
     ##
-    #   \brief __init__ is the constructor for the class.
-    #
-    #   This constructor initializes the outcomes and the input outout keys for this state.
-    #
+    #   \brief The __init__ constructor initializes the state outcome and input output keys
     def __init__(self):
             smach.State.__init__(self,
-                                 outcomes=['turn_head', 'ball_lost', 'tired','stop_play'],
-                                 input_keys=['follow_ball_fatigue_counter_in'],
-                                 output_keys=['follow_ball_fatigue_counter_out'])
-
+                                 outcomes=['rested'],
+                                 input_keys=['rest_fatigue_counter_in'],
+                                 output_keys=['rest_fatigue_counter_out'])
     ##
-    #   \brief execute This function performs the behavior for the state
-    #   \param userdata Is the structure containing the data shared among states, it is used
-    #   to pass the level of fatigue among states.
+    #   \brief  The member function executing the state behavior
+    #   \param userdata Is the structure containing the data shared among states.
     #   \return a string consisting of the state outcome
     #
-    #   This funtion makes the robot move towards the detected ball. To do so, it publishes the
-    #   geometry_msgs/Twist message defined in the imageReceived() callback.
-    #   It makes the robot to follow the ball until the ball is consider close to the robot and this
-    #   last one is also still. To satifly the first condition, the value of the dedicated boolean:
-    #   ball_is_close is checked. Secondly, for the other condition, both the linear and angular
-    #   speeds are consider to determine if the robot is still moving. If the ball is close to the
-    #   robot and the robot is not significantly moving than the ball is considered as reached.
-    #   Once the ball has been reached, first it increases the fatigue counter as a new motion has been
-    #   completed, then it checks that the robot has not reached the fatigue threshold. In this case
-    #   it returns 'turn_head' in other to chage the state into the TURN_HEAD_COUNTERCLOCKWISE state, described in the
-    #   TurnHeadCounterClockWise class. On the other hand, if the level of fatigue has reached the threshold,
-    #   then it returns 'tired' in order to change the state into REST, represented in Rest.
-    #   On the other hand, if the balls disappears from the camera field of view, it changes the state
-    #   with the transition 'ball_lost' in order to search for the ball in the state TURN_ROBOT, see TurnRobot.
-    #   Finally, if the ball has not been detected for a time greater then the maximum_dead_time then
-    #   it exit the state returning 'stop_play' changing the state into MOVE, see Move.
     #
     def execute(self, userdata):
-        global ball_detected
-        global ball_is_close
-        global robot_twist
-        global time_since
-        global maximum_dead_time
-        global robot_controller
-
-        while time_since <= maximum_dead_time and not rospy.is_shutdown():
-            robot_controller.publish(robot_twist)
-
-            if not ball_detected:
-                return 'ball_lost'
-
-            if ball_is_close:
-                # Evaluate if the robot is still
-                vels = math.sqrt( (robot_twist.linear.x*robot_twist.linear.x) + (robot_twist.angular.z*robot_twist.angular.z) )
-                if vels <= 0.05:
-                    print("Ball Reached")
-                    #   Increment the counter for the fatigue as the robot has moved
-                    userdata.follow_ball_fatigue_counter_out = userdata.follow_ball_fatigue_counter_in + 1
-                    print('Level of fatigue : ', userdata.follow_ball_fatigue_counter_in)
-                    #   Check if the robot is tired
-                    if isTired( userdata.follow_ball_fatigue_counter_in ):
-                        print('Robot is tired of playing...')
-                        #   Return 'tired' to change the state
-                        return 'tired'
-                    #   Make sure the robot stays still
-                    null_twist = Twist()
-                    robot_controller.publish(null_twist)
-                    return 'turn_head'
-
-        #   Stop play if the robot does not see ball for 5 sec or more
-        print("Dead time : ", int(time_since), " [s]")
-        #   Ensure no bugs from previous detection
-        ball_is_close = False
-        ball_detected = False
-        return 'stop_play'
-
-
-##
-#   \class TurnHeadCounterClockWise
-#   \brief This class defines the state of the state machine corresponding to the robot turning the head counterclockwise
-#
-#   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is a substate of the state Play. In this state the robot turns the head counterclockwise.
-#   As part of the smach class, this class has the member function execute() providing the intended behavior.
-#   For more details about the content of this class, see the member function documentation.
-#
-class TurnHeadCounterClockWise(smach.State):
-    ##
-    #   \brief __init__ is the constructor for the class.
-    #
-    #   This constructor initialize the outcome for this state.
-    #
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['done'])
-
-    ##
-    #   \brief execute This function performs the behavior for the state
-    #   \param userdata Is the structure containing the data shared among states, it is used
-    #   to pass the level of fatigue among states.
-    #   \return a string consisting of the state outcome
-    #
-    #   This funtion makes the robot to turn the head counterclockwise.
-    #   It reads the current value of the angle of the neck_joint and compare the value with the desired angle.
-    #   In this case, counterclockwise roation of the head, the desired angle is -&pi/4, so it decreases the
-    #   current angle of a fixed step and it sends as rotation angle for the joint. This will simulate the
-    #   head of the robot to turn in the counterclockwise direction.
-    #   After having reached the desired angle, it returns 'done' in order to change the state into
-    #   TURN_HEAD_CLOCKWISE, see TurnHeadClockWise
-    #
-    def execute(self, userdata):
-        global neck_angle
-        global neck_controller
-        global neck_controller_rate
-        neck_angle_ = Float64()
-        neck_angle_.data = neck_angle
-        #   Turn the head counterclockwise
-        while neck_angle_.data < math.pi/4 and not rospy.is_shutdown():
-            neck_angle_.data = neck_angle_.data +0.01;
-            neck_controller.publish(neck_angle_)
-            neck_controller_rate.sleep()
-        #   Wait for some time
-        rospy.sleep(1)
-        return 'done'
-
-##
-#   \class TurnHeadClockWise
-#   \brief This class defines the state of the state machine corresponding to the robot turning the head clockwise
-#
-#   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is a substate of the state Play. In this state the robot turns the head clockwise.
-#   As part of the smach class, this class has the member function execute() providing the intended behavior.
-#   For more details about the content of this class, see the member function documentation.
-#
-class TurnHeadClockWise(smach.State):
-    ##
-    #   \brief __init__ is the constructor for the class.
-    #
-    #   This constructor initializes the outcome for this state.
-    #
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['done'])
-
-
-    ##
-    #   \brief execute This function performs the behavior for the state
-    #   \param userdata Is the structure containing the data shared among states, it is used
-    #   to pass the level of fatigue among states.
-    #   \return a string consisting of the state outcome
-    #
-    #   This funtion makes the robot to turn the head clockwise.
-    #   It reads the current value of the angle of the neck_joint and compare the value with the desired angle.
-    #   In this case, clockwise roation of the head, the desired angle is &pi/4, so it increases the
-    #   current angle of a fixed step and it sends as rotation angle for the joint. This will simulate the
-    #   head of the robot to turn in the clockwise direction.
-    #   After having reached the desired angle, it returns 'done' in order to change the state into
-    #   SET_HEAD_STRAIGHT, see SetHeadStraight.
-    #
-    def execute(self, userdata):
-        global neck_angle
-        global neck_controller
-        global neck_controller_rate
-        neck_angle_ = Float64()
-        neck_angle_.data = neck_angle
-        #   Turn the head clockwise
-        while neck_angle_.data > -math.pi/4 and not rospy.is_shutdown():
-            neck_angle_.data = neck_angle_.data -0.01;
-            neck_controller.publish(neck_angle_)
-            neck_controller_rate.sleep()
-        #   Wait for some time
-        rospy.sleep(1)
-        return 'done'
-
-##
-#   \class SetHeadStraight
-#   \brief This class defines the state of the state machine corresponding to the robot turning the head back to the normal orientation.
-#
-#   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is a substate of the state Play. In this state the robot turns the head in order to
-#   return to the original configuration.
-#   As part of the smach class, this class has the member function execute() providing the intended behavior.
-#   For more details about the content of this class, see the member function documentation.
-#
-class SetHeadStraight(smach.State):
-    ##
-    #   \brief __init__ is the constructor for the class.
-    #
-    #   This constructor initializes the outcome for this state.
-    #
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['done'])
-
-    ##
-    #   \brief execute This function performs the behavior for the state
-    #   \param userdata Is the structure containing the data shared among states, it is used
-    #   to pass the level of fatigue among states.
-    #   \return a string consisting of the state outcome
-    #
-    #   This funtion makes the robot to turn its head the back to the original configuration.
-    #   It reads the current value of the angle of the neck_joint and it increases it by a fixed
-    #   step and it sends as rotation angle for the joint. This will simulate the head of the robot
-    #   to turn in the origina orientation.
-    #   After having reached the desired angle, it returns 'done' in order to change the state back into
-    #   FOLLOW_BALL, see FollowBall.
-    #
-    def execute(self, userdata):
-        global ball_detected
-        global ball_is_close
-        global neck_angle
-        global neck_controller
-        global neck_controller_rate
-        neck_angle_ = Float64()
-        neck_angle_.data = neck_angle
-        #   Turn the head straight
-        while neck_angle_.data < 0  and not rospy.is_shutdown():
-            neck_angle_.data = neck_angle_.data +0.01;
-            neck_controller.publish(neck_angle_)
-            neck_controller_rate.sleep()
-        #   Ensure no bud from previous detection
-        ball_detected = False
-        ball_is_close = False
-        return 'done'
-
-
-##
-#   \class TurnRobot
-#   \brief This class defines the state of the state machine corresponding to the robot turning on itself.
-#
-#   This class inheritates from smach and it consist of a state in the state machine. The state
-#   that is represented here is a substate of the state Play. In this state the robot turns on itself looking
-#   for the ball that just disappeared from its camera field of view.
-#   As part of the smach class, this class has the member function execute() providing the intended behavior.
-#   For more details about the content of this class, see the member function documentation.
-#
-class TurnRobot(smach.State):
-    ##
-    #   \brief __init__ is the constructor for the class.
-    #
-    #   This constructor initializes the outcomes for this state.
-    #
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['full_turn', 'ball_found', 'stop_play'])
-
-    ##
-    #   \brief normalizeAngle given an angle, returns its corresponding value in the interval [-&pi, &pi]
-    #
-    #   This constructor initializes the outcomes for this state.
-    #
-    def normalizeAngle(self, angle):
-        if(math.fabs(angle) > math.pi):
-            angle = angle - (2 * math.pi * angle) / (math.fabs(angle))
-        return angle
-
-    ##
-    #   \brief execute This function performs the behavior for the state
-    #   \param userdata Is the structure containing the data shared among states, here unused.
-    #   \return a string consisting of the state outcome
-    #
-    #   This function simply makes the robot tu turn at the most of 360. If it reaches this
-    #   degree of rotation, then it uses the transition 'full_turn'. In the case it detects the ball while
-    #   turning it returns the transition 'ball_found'. However, bot the transition lead to the state FollowBall.
-    #   In the case the maximum time without a ball detection is expired, it returns 'stop_play' in order to
-    #   move to the Move behavior.
-    #
-    def execute(self, userdata):
-        global yaw
-        global time_since
-        global maximum_dead_time
-        global ball_detected
-        global robot_controller
-
-        yaw_old = self.normalizeAngle(yaw)
-        diff = 0.0
-        #   Turn the robot of 360 degrees
-        while diff < 2*math.pi:
-            #   If ball is detected
-            if ball_detected :
-                #   Change the state
-                return 'ball_found'
-            #   If the mximum time without ball has been reaced
-            if time_since >= maximum_dead_time:
-                return 'stop_play'
-            #   Else rotate the robot a bit more
-            rotation_twist = Twist()
-            rotation_twist.angular.z = -0.8
-            robot_controller.publish(rotation_twist)
-            #   Update the covered rotation
-            diff = diff + abs( self.normalizeAngle(yaw - yaw_old) )
-            yaw_old = self.normalizeAngle(yaw)
-        #   Change the state
-        return 'full_turn'
-
 
 
 ##
@@ -757,13 +676,14 @@ def main():
     global neck_controller_rate
     global robot_controller
     global max_speed
+    global time_before_change_target
 
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
 
     #   Sleep for waiting the end of all the Initialization logs
     rospy.sleep(4)
-
+    print("Starting the state machines")
     #   Initialize the seed
     random.seed()
 
@@ -809,6 +729,8 @@ def main():
     print("fatigue_threshold" , fatigue_threshold)
     print("maximum_dead_time" , maximum_dead_time)
 
+    time_before_change_target = rospy.get_param('/time_before_change_target', 40.0)
+
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['behavior_interface'])
     sm.userdata.fatigue_level = 0
@@ -816,51 +738,37 @@ def main():
     # Open the container
     with sm:
         # Add states to the container
-        smach.StateMachine.add('MOVE', Move(),
-                               transitions={'tired':'REST', 'playing':'PLAY'},
-                               remapping={'move_fatigue_counter_in':'fatigue_level',
-                                          'move_fatigue_counter_out':'fatigue_level'})
 
-        smach.StateMachine.add('REST', Rest(),
-                               transitions={'rested':'MOVE'},
-                               remapping={'rest_fatigue_counter_in':'fatigue_level',
-                                          'rest_fatigue_counter_out':'fatigue_level'})
-
-        #   Create the sub state machine for the play behavior
-        sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'bored_of_play'],
+        #   Create the sub state machine for the normal behavior
+        sub_sm = smach.StateMachine(outcomes=['sleepy_robot'],
                                     output_keys=['sub_sm_fatigue_level'],
                                     input_keys=['sub_sm_fatigue_level'])
 
         with sub_sm:
 
-            smach.StateMachine.add('FOLLOW_BALL', FollowBall(),
-                                   transitions={'turn_head':'TURN_HEAD_COUNTERCLOCKWISE',
-                                                'ball_lost':'TURN_ROBOT',
-                                                'tired':'sleepy_robot',
-                                                'stop_play':'bored_of_play'},
-                                   remapping={'follow_ball_fatigue_counter_in':'sub_sm_fatigue_level',
-                                              'follow_ball_fatigue_counter_out':'sub_sm_fatigue_level'})
+            smach.StateMachine.add('MOVE', Move(),
+                                   transitions={'tired':'sleepy_robot',
+                                                'tracking':'TRACK_BALL'},
+                                   remapping={'move_fatigue_counter_in':'sub_sm_fatigue_level',
+                                              'move_fatigue_counter_out':'sub_sm_fatigue_level'})
 
-            smach.StateMachine.add('TURN_ROBOT', TurnRobot(),
-                                   transitions={'full_turn':'FOLLOW_BALL',
-                                                'ball_found':'FOLLOW_BALL',
-                                                'stop_play':'bored_of_play'})
-
-            smach.StateMachine.add('TURN_HEAD_COUNTERCLOCKWISE', TurnHeadCounterClockWise(),
-                                   transitions={'done':'TURN_HEAD_CLOCKWISE'})
-
-            smach.StateMachine.add('TURN_HEAD_CLOCKWISE', TurnHeadClockWise(),
-                                   transitions={'done':'SET_HEAD_STRAIGHT'})
-
-            smach.StateMachine.add('SET_HEAD_STRAIGHT', SetHeadStraight(),
-                                   transitions={'done':'FOLLOW_BALL'})
+            smach.StateMachine.add('TRACK_BALL', TrackBall(),
+                                   transitions={'registered':'MOVE'},
+                                   remapping={'track_ball_fatigue_counter_in':'sub_sm_fatigue_level',
+                                              'track_ball_fatigue_counter_out':'sub_sm_fatigue_level'})
 
 
-        smach.StateMachine.add('PLAY', sub_sm,
-                               transitions={'bored_of_play':'MOVE',
-                                            'sleepy_robot':'REST'},
+
+        smach.StateMachine.add('NORMAL', sub_sm,
+                               transitions={'sleepy_robot':'REST'},
                                remapping={'sub_sm_fatigue_level':'fatigue_level',
                                           'sub_sm_fatigue_level':'fatigue_level'})
+
+        smach.StateMachine.add('REST', Rest(),
+                               transitions={'rested':'NORMAL'},
+                               remapping={'rest_fatigue_counter_in':'fatigue_level',
+                                          'rest_fatigue_counter_out':'fatigue_level'})
+
 
 
     # Create and start the introspection server for visualization

@@ -67,12 +67,10 @@
   <build_depend>nav_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>tf</build_depend>
-<<<<<<< Updated upstream
   <build_depend>move_base_msgs</build_depend>
-=======
   <build_depend>planning</build_depend>
   <build_depend>gmapping</build_depend>
->>>>>>> Stashed changes
+
 
 
 
@@ -91,11 +89,8 @@
   <build_export_depend>image_transport</build_export_depend>
   <build_export_depend>tf</build_export_depend>
   <build_export_depend>planning</build_export_depend>
-<<<<<<< Updated upstream
   <build_export_depend>move_base_msgs</build_export_depend>
-=======
   <build_export_depend>gmapping</build_export_depend>
->>>>>>> Stashed changes
 
 
   <exec_depend>rospy</exec_depend>
@@ -113,12 +108,8 @@
   <exec_depend>image_transport</exec_depend>
   <exec_depend>tf</exec_depend>
   <exec_depend>planning</exec_depend>
-<<<<<<< Updated upstream
-  <exec_depend>imutils</exec_depend>
   <exec_depend>move_base_msgs</exec_depend>
-=======
   <exec_depend>gmapping</exec_depend>
->>>>>>> Stashed changes
 
 
 
