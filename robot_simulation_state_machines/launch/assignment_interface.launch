@@ -1,10 +1,10 @@
 <launch>
     <!-- Parameters defining the discretized world width and height -->
-    <param name="/world_width"     value="16" />
+    <param name="/world_width"     value="12" />
     <param name="/world_height"    value="16" />
 
     <!-- Parameters to define the sleeping position -->
-    <param name="/sleep_x_coord" value="-8" />
+    <param name="/sleep_x_coord" value="-5" />
     <param name="/sleep_y_coord" value="-8" />
 
     <!-- Parameters to define the interval of time the ball remains hidden on start -->
@@ -33,8 +33,17 @@
 
 
     <!-- Include the launch file for the Gazebo setup -->
-    <include file="$(find robot_simulation_state_machines)/launch/gazebo_world.launch" >
+    <include file="$(find robot_simulation_state_machines)/launch/sim_w1.launch" >
     </include>
+
+
+    <include file="$(find planning)/launch/gmapping.launch">
+    </include>
+
+
+    <include file="$(find planning)/launch/move_base.launch">
+    </include>
+
 
 
 </launch>
