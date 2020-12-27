@@ -73,24 +73,11 @@ def reachPosition(pose, wait=False, verbose=False):
     #   listening for goals.
     planning_client.wait_for_server()
     #   Creates a goal to send to the action server.
-    #goal = robot_simulation_messages.msg.PlanningGoal(pose)
-    #posestmp = PoseStamped()
-    #posestmp.pose = pose
-    #goal = move_base_msgs.msg.MoveBaseActionGoal(posestmp)
-    #   Sends the goal to the action server.
-    #planning_client.send_goal(goal)
-    #   Waits for the server to finish performing the action.
-    #goal = move_base_msgs.msg.MoveBaseActionGoal()
-
-    #goal.target_pose.header.frame_id = "link_chassis"
-    #goal.target_pose.header.stamp = rospy.Time.now()
-
-    #goal.target_pose.pose.position.x = pose.position.x
-    #goal.target_pose.pose.orientation.w = pose.orientation.y
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
     goal.target_pose.pose.position.x = pose.position.x
+    goal.target_pose.pose.position.y = pose.position.y
     goal.target_pose.pose.orientation.w = pose.position.y
 
     planning_client.send_goal(goal)
