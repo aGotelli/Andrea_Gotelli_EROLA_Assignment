@@ -56,6 +56,7 @@ import math
 
 # Ros Messages
 from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Pose
 from std_msgs.msg import String
@@ -83,18 +84,17 @@ from explore_lite.msg import ExploreAction, ExploreGoal
 
 """
     Problems:
-        -> Se lo vede di lato ed è dietro ad angolo, ci si schianta contro allalgolo e si blocca
         -> Il sistema dovrebbe capire quando il target è irraggiungibile
         -> Dopo aver registrato la palla, il robot forse tornare al target prestabilito oppure un altro random?
         -> If, for some reason, it loses the ball while tracking then its stuck
         -> Ci sta un po a assumere positione raggiunta
+        -> A volte si pianta contro i muri
 
 
     Questions:
         -> Why so slow in U turn
         -> Qualche volta invece di andare indietro va avanti e se ne frega altamente
         -> How to speed up?
-        -> How to correctly swet color ranges
         -> How to move classes in files... Problems with global and initializations...
         -> Is it ok to have two states referring to the same class?
         -> How to increase the level of fatigue<? each time?
@@ -161,6 +161,8 @@ neck_angle = 0.0
 #   \brief Is the maximum linear velocity included for safe navigation.
 max_speed = 0
 
+max_rot_speed = 0.2
+
 ##
 #   \brief Is the time passed from the moment the ball appeared in the camera view,
 #           it incresed as long as the ball remains detected.
@@ -177,6 +179,26 @@ time_before_change_target = 0.0
 #   \brief Is the robot heading
 yaw = 0.0
 robot_pose = Pose()
+
+count = 0
+def clbk_laser(msg):
+    regions = {
+        'right':  min(min(msg.ranges[0:287]), 10),
+        'left':   min(min(msg.ranges[432:719]), 10)
+    }
+    take_action(regions)
+
+correction_twist = Twist()
+def take_action(regions):
+    global correction_twist
+    global ball_is_close
+    correction_twist = Twist()
+    if not ball_is_close:
+        if regions['left'] < 0.5 :
+            correction_twist.angular.z = - 0.001
+        elif regions['right'] < 0.5 :
+            correction_twist.angular.z = 0.001
+
 
 ##
 #    \brief isTired check the level of fatigue to establish if the robot is "tired"
@@ -226,16 +248,16 @@ class ColorDetails:
         self.associated_room = room
 
 #blue = ColorDetails( (210,60,60), (250, 100, 100), (255, 0, 0) )
-blue = ColorDetails( (60,30,30), (255,120,80), (255, 0, 0), 'entrance' )
-red = ColorDetails( (20,20,100), (100,50,50), (0, 0, 255), 'closet' )
-green = ColorDetails( (50, 50, 20), (70, 255, 255), (0, 255, 0), 'living_room' )   #ok
-yellow = ColorDetails( (20, 100, 100), (30, 255, 255), (0, 251, 253), 'kitchen' )  #ok
-orange = ColorDetails( (5, 50, 50), (15, 255, 255), (10, 135, 255), 'bathroom' )
-black = ColorDetails( (0,0,0), (20,20,20), (0, 0, 0), 'bedroom' )  #ok
+blue = ColorDetails( (100, 50, 50), (130, 255, 255), (255, 0, 0), 'entrance' )
+red = ColorDetails( (0, 50, 50), (5, 255, 255), (0, 0, 255), 'closet' )
+green = ColorDetails( (50, 50, 50), (70, 255, 255), (0, 255, 0), 'living_room' )   #ok
+yellow = ColorDetails( (25, 50, 50), (35, 255, 255), (0, 251, 253), 'kitchen' )  #ok
+magenta = ColorDetails(  (125, 50, 50), (150, 255, 255), (10, 135, 255), 'bathroom' )
+black = ColorDetails( (0, 0, 0), (5,50,50), (0, 0, 0), 'bedroom' )  #ok
 
-colors = np.array([('green', green), ('yellow', yellow), ('black', black) ])
-#lower_blue = np.array(140,100, 140)
-#upper_blue = np.array(150,255,255)
+colors = np.array([('blue', blue), ('red', red), ('green', green),
+                    ('yellow', yellow), ('magenta', magenta), ('black', black) ])
+
 
 def findBallIn(hsv_image, index = 0):
     global colors
@@ -323,6 +345,7 @@ def imageReceived(ros_data):
     global last_detection
     global sleepy_robot
     global max_speed
+    global max_rot_speed
     global detection_time
 
     #   Update last detection timestamp
@@ -359,7 +382,7 @@ def imageReceived(ros_data):
                        circle_color, 2)
             cv2.circle(image_np, center, 5, (255, 255, 255), -1)
             robot_twist = Twist()
-            robot_twist.angular.z = -0.005*(center[0]-400)
+            robot_twist.angular.z = -0.004*(center[0]-400)
             robot_twist.linear.x = 0.02*(110-radius)
 
             scale = 1
@@ -367,9 +390,10 @@ def imageReceived(ros_data):
             #   Increase linearly for 3 seconds to avoid soaring
             if ( time_from_first_detection <= 3.0 ):
                 scale = time_from_first_detection/3
-            #   Limit the robot maximum linear velocity
+            #   Limit the robot maximum linear speed
             if abs(robot_twist.linear.x) > max_speed :
                 robot_twist.linear.x = np.sign(robot_twist.linear.x)*max_speed
+            #   Increase linearly
             robot_twist.linear.x = robot_twist.linear.x*scale
             #   Finalize detection
             ball_detected = True
@@ -381,14 +405,13 @@ def imageReceived(ros_data):
             if ( radius >= radius_threshold ):
                 #   The robot has reached the ball
                 ball_is_close = True
-                #robot_twist = Twist()
             else:
                 ball_is_close = False
     else:
         ball_detected = False
         robot_twist = Twist()
 
-    cv2.imshow('window', image_np)
+    cv2.imshow('robot_camera', image_np)
     cv2.waitKey(2)
 
 
@@ -438,7 +461,7 @@ class Move(smach.State):
             smach.State.__init__(self,
                                  outcomes=['tired','tracking', 'play'],
                                  input_keys=['move_fatigue_counter_in'],
-                                 output_keys=['move_fatigue_counter_out'])
+                                 output_keys=['move_fatigue_counter_out','move_room_to_find'])
             self.target = Pose()
             self.targetSeemsReacheable = True
             self.prev_dist = 0.0
@@ -450,13 +473,17 @@ class Move(smach.State):
         print("Received command to play")
         self.time_to_play = True
 
-    def newTarget(self):
+    def newTarget(self, target=None):
         self.targetSeemsReacheable = True
         #   Declare a geometry_msgs/Pose for the random position
         random_ = Pose()
         #   Define the random components (x, y) of this random position
-        random_.position.x = random.randint(-width/2, width/2)
-        random_.position.y = random.randint(-height/2, height/2)
+        if (target == None):
+            random_.position.x = random.randint(-width/2, width/2)
+            random_.position.y = random.randint(-height/2, height/2)
+        else:
+            random_.position.x = target[0]
+            random_.position.y = target[1]
         #   Call the service to reach this position
         self.target = random_
         self.prev_dist = compEuclidDist(random_, robot_pose)
@@ -497,8 +524,10 @@ class Move(smach.State):
         global ball_detected
         global planning_client
         global time_before_change_target
+        userdata.move_room_to_find = ''
         #   Declare a geometry_msgs/Pose for the random position
-        self.newTarget()
+        self.newTarget( target=(-2, 5) )
+        #   Initialize the timer to check if the robot progress periodically
         timer = rospy.Timer(rospy.Duration(time_before_change_target), self.checkReachability)
         #   Main loop
         while not rospy.is_shutdown():
@@ -519,7 +548,8 @@ class Move(smach.State):
                     print("Computing a new target")
                     self.newTarget()
                 #   If none of the previous was true, then continue with the Move behavior
-                if planning_client.get_result():
+                state = planning_client.get_state()
+                if state == 3:
                     print("Reached the position!")
                     #   Increment the level of the robot fatigue
                     userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
@@ -588,12 +618,16 @@ class TrackBall(smach.State):
         global ball_detected
         global ball_is_close
         global robot_twist
+        global correction_twist
         global time_since
         global maximum_dead_time
         global robot_controller
 
         while not rospy.is_shutdown():
-            robot_controller.publish(robot_twist)
+            resulting_twist = Twist()
+            resulting_twist = robot_twist
+            resulting_twist.angular.z = resulting_twist.angular.z + correction_twist.angular.z
+            robot_controller.publish(resulting_twist)
             if ball_is_close:
                 # Evaluate if the robot is still
                 vels = math.sqrt( (robot_twist.linear.x*robot_twist.linear.x) + (robot_twist.angular.z*robot_twist.angular.z) )
@@ -610,13 +644,16 @@ class TrackBall(smach.State):
                     #   Set to false for avoid bug
                     ball_is_close = False
                     ball_detected = False
-                    print()
-                    if founded_room == userdata.track_room_to_find:
-                        print("The ", founded_room, " is reached")
-                        return 'room_founded'
-                    else:
-                        print("Found ", founded_room, " but ", userdata.track_room_to_find, " is the room of interest")
+                    desired_room = userdata.track_room_to_find
+                    if desired_room == '':
                         return 'registered'
+                    else:
+                        if founded_room == desired_room:
+                            print("The ", founded_room, " is reached")
+                            return 'room_founded'
+                        else:
+                            print("Found ", founded_room, " but the goal is to find ", desired_room)
+                            return 'registered'
 
 
 
@@ -743,6 +780,8 @@ def main():
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
 
+    cv2.namedWindow('robot_camera', cv2.WINDOW_NORMAL)
+
     #   Sleep for waiting the end of all the Initialization logs
     rospy.sleep(0.5)
     print("Starting the state machines")
@@ -769,6 +808,10 @@ def main():
 
     #   Definition of the pubisher for the robot velocity
     robot_controller = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+
+    #   Definition of the subscriber to the laser scan
+    sub_laser = rospy.Subscriber('/scan', LaserScan, clbk_laser, queue_size=1)
+
 
     #   Definition of the subscriber for the robot Odometry
     sub_odom = rospy.Subscriber('odom', Odometry, odometryReceived)
@@ -813,13 +856,15 @@ def main():
                                                 'tracking':'TRACK_BALL',
                                                 'play':'time_to_play'},
                                    remapping={'move_fatigue_counter_in':'sub_sm_fatigue_level',
-                                              'move_fatigue_counter_out':'sub_sm_fatigue_level'})
+                                              'move_fatigue_counter_out':'sub_sm_fatigue_level',
+                                              'move_room_to_find':'room_to_find'})
 
             smach.StateMachine.add('TRACK_BALL', TrackBall(),
                                    transitions={'registered':'MOVE',
                                                 'room_founded':'MOVE'},
                                    remapping={'track_ball_fatigue_counter_in':'sub_sm_fatigue_level',
-                                              'track_ball_fatigue_counter_out':'sub_sm_fatigue_level'})
+                                              'track_ball_fatigue_counter_out':'sub_sm_fatigue_level',
+                                              'track_room_to_find':'room_to_find'})
 
 
 
@@ -874,6 +919,7 @@ def main():
     # Wait for ctrl-c to stop the application
     rospy.spin()
     sis.stop()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
