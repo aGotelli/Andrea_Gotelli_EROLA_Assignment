@@ -47,7 +47,11 @@
         <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
     </group>
 
-	
+
+    <param name="human_description1" textfile="$(find robot_simulation_description)/urdf/human.urdf" />
+
+    <node name="urdf_spawner_human1" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+         args="-urdf -model human1 -param human_description1 -x -6 -y 8.5 -z 0.34 -R 0 -P 0 -Y -0.75"/>
 
     <!-- these are the arguments you can pass this launch file, for example paused:=true -->
     <arg name="model" default="$(find robot_simulation_description)/urdf/robot.xacro" />
