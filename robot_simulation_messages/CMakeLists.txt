@@ -58,7 +58,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
    FILES
    PersonCommand.srv
-#   GiveGesture.srv
+   ShowAvailableRooms.srv
 )
 
 ## Generate actions in the 'action' folder
