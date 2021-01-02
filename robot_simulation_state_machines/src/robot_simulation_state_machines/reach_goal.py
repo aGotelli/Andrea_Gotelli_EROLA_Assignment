@@ -78,7 +78,7 @@ def reachPosition(pose, wait=False, verbose=False):
     goal.target_pose.header.stamp = rospy.Time.now()
     goal.target_pose.pose.position.x = pose.position.x
     goal.target_pose.pose.position.y = pose.position.y
-    goal.target_pose.pose.orientation.w = pose.position.y
+    goal.target_pose.pose.orientation.w = 1
 
     planning_client.send_goal(goal)
 
