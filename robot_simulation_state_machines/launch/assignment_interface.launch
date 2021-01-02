@@ -29,7 +29,7 @@
     <param name="/maximum_dead_time" value="10" />
 
     <!-- Parameter to define the robot maximul linear velocity (safety reason) -->
-    <param name="/max_speed" value="1.5" />
+    <param name="/max_speed" value="0.5" />
 
 
     <!-- Include the launch file for the Gazebo setup -->
