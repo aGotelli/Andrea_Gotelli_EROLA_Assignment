@@ -80,6 +80,7 @@ import cv2
 from robot_simulation_state_machines.reach_goal import reachPosition
 from robot_simulation_state_machines.reach_goal import planning_client
 from robot_simulation_messages.srv import PersonCommand
+from robot_simulation_messages.srv import ShowAvailableRooms, ShowAvailableRoomsResponse
 from explore_lite.msg import ExploreAction, ExploreGoal
 
 """
@@ -99,6 +100,12 @@ from explore_lite.msg import ExploreAction, ExploreGoal
         -> Is it ok to have two states referring to the same class?
         -> How to increase the level of fatigue<? each time?
         -> Is it correct?
+
+
+        -> sI SCHIANTA O PUNTA CONHTRO I MURI
+        -> UNA PALLA ALLA VOLTA E NON DUE
+        -> HOW TO PASS REFERENCE IN PYTHON?
+
 """
 
 ##
@@ -174,6 +181,8 @@ detection_time = 0.0
 radius_threshold = 100
 
 time_before_change_target = 0.0
+
+#cv2.namedWindow('robot_camera', cv2.WINDOW_NORMAL)
 
 ##
 #   \brief Is the robot heading
@@ -252,7 +261,7 @@ blue = ColorDetails( (100, 50, 50), (130, 255, 255), (255, 0, 0), 'entrance' )
 red = ColorDetails( (0, 50, 50), (5, 255, 255), (0, 0, 255), 'closet' )
 green = ColorDetails( (50, 50, 50), (70, 255, 255), (0, 255, 0), 'living_room' )   #ok
 yellow = ColorDetails( (25, 50, 50), (35, 255, 255), (0, 251, 253), 'kitchen' )  #ok
-magenta = ColorDetails(  (125, 50, 50), (150, 255, 255), (10, 135, 255), 'bathroom' )
+magenta = ColorDetails(  (125, 50, 50), (150, 255, 255), (10, 135, 255), 'bathroom' )# NOPE
 black = ColorDetails( (0, 0, 0), (5,50,50), (0, 0, 0), 'bedroom' )  #ok
 
 colors = np.array([('blue', blue), ('red', red), ('green', green),
@@ -382,8 +391,8 @@ def imageReceived(ros_data):
                        circle_color, 2)
             cv2.circle(image_np, center, 5, (255, 255, 255), -1)
             robot_twist = Twist()
-            robot_twist.angular.z = -0.004*(center[0]-400)
-            robot_twist.linear.x = 0.02*(110-radius)
+            robot_twist.angular.z = -0.005*(center[0]-250)
+            robot_twist.linear.x = 0.02*( (radius_threshold*1.10)-radius)
 
             scale = 1
             time_from_first_detection = rospy.Time.now().to_sec() - detection_time
@@ -412,7 +421,7 @@ def imageReceived(ros_data):
         robot_twist = Twist()
 
     cv2.imshow('robot_camera', image_np)
-    cv2.waitKey(2)
+    cv2.waitKey(1)
 
 
 
@@ -482,6 +491,7 @@ class Move(smach.State):
             random_.position.x = random.randint(-width/2, width/2)
             random_.position.y = random.randint(-height/2, height/2)
         else:
+            print("Using user-defined coordinates")
             random_.position.x = target[0]
             random_.position.y = target[1]
         #   Call the service to reach this position
@@ -526,7 +536,7 @@ class Move(smach.State):
         global time_before_change_target
         userdata.move_room_to_find = ''
         #   Declare a geometry_msgs/Pose for the random position
-        self.newTarget( target=(-2, 5) )
+        self.newTarget()
         #   Initialize the timer to check if the robot progress periodically
         timer = rospy.Timer(rospy.Duration(time_before_change_target), self.checkReachability)
         #   Main loop
@@ -587,7 +597,7 @@ class TrackBall(smach.State):
     #
     def __init__(self):
             smach.State.__init__(self,
-                                 outcomes=['registered', 'room_founded'],
+                                 outcomes=['registered', 'room_founded','ball_lost'],
                                  input_keys=['track_ball_fatigue_counter_in','track_room_to_find'],
                                  output_keys=['track_ball_fatigue_counter_out'])
 
@@ -624,6 +634,8 @@ class TrackBall(smach.State):
         global robot_controller
 
         while not rospy.is_shutdown():
+            if time_since >= maximum_dead_time :
+                return 'ball_lost'
             resulting_twist = Twist()
             resulting_twist = robot_twist
             resulting_twist.angular.z = resulting_twist.angular.z + correction_twist.angular.z
@@ -728,15 +740,23 @@ class Find(smach.State):
 class Interact(smach.State):
     def __init__(self):
         smach.State.__init__(self,
-                             outcomes=['find'],
+                             outcomes=['find','tired','stop_play'],
                              input_keys=['interact_fatigue_counter_in'],
                              output_keys=['interact_fatigue_counter_out','room_to_find'])
 
         self.person_srv_client = rospy.ServiceProxy('/person_decision', PersonCommand)
+        sefl.time_in_play = 0.0
 
     def execute(self, userdata):
         global colors
+        min_time = 100
+        max_time = 200
+        sefl.time_in_play = random.randint(min_time, max_time)
+        init_time = rospy.Time.now().to_sec()
         while not rospy.is_shutdown():
+            time_elapsed = rospy.Time.now().to_sec() - init_time
+            if time_elapsed >= self.time_in_play:
+                return 'stop_play'
             person_pose = Pose()
             person_pose.position.x = -5
             person_pose.position.y = 8
@@ -752,11 +772,37 @@ class Interact(smach.State):
                 if ball[1].associated_room == desired.room :
                     available_room = True
                     print("Going to room ", ball[1].associated_room )
-                    reachPosition(ball[1].pose)
+                    reachPosition(ball[1].pose,  wait=True)
+                    #   Increase level of fatigue
+                    userdata.interact_fatigue_counter_out = userdata.interact_fatigue_counter_in + 1
+                    #   Print a log to show the level of fatigue
+                    print('Level of fatigue : ', userdata.interact_fatigue_counter_in)
+                    #   Check is the robot is tired
+                    if isTired(userdata.interact_fatigue_counter_in) :
+                        #   Print a log to inform about the fact that the robot is tired
+                        print('Robot is tired of moving...')
+                        #   Return 'tired' to change the state
+                        return 'tired'
             if not available_room :
                 print("The room ",desired.room ," is not available yet...")
                 userdata.room_to_find = ball[1].associated_room
                 return 'find'
+
+
+def sarCallback(req):
+    global colors
+    none_is_found = True
+    room_list =[]
+    room_list.append("Available room(s): ")
+    for ball in colors :
+        if ball[1].registered :
+            if none_is_found :
+                none_is_found = False
+            room_list.append(ball[1].associated_room)
+    if none_is_found:
+        room_list.append("None")
+    return ShowAvailableRoomsResponse(room_list)
+
 ##
 #   \brief __main__ intializes the ros node and the smach state machine
 #
@@ -779,8 +825,6 @@ def main():
 
     #   Initialization of the ros node
     rospy.init_node('robot_behavior_state_machine')
-
-    cv2.namedWindow('robot_camera', cv2.WINDOW_NORMAL)
 
     #   Sleep for waiting the end of all the Initialization logs
     rospy.sleep(0.5)
@@ -815,6 +859,11 @@ def main():
 
     #   Definition of the subscriber for the robot Odometry
     sub_odom = rospy.Subscriber('odom', Odometry, odometryReceived)
+
+
+    #############################################################
+    sar_service = rospy.Service('sar_service', ShowAvailableRooms, sarCallback)
+    ############################################################à
 
     #   Retrieve the parameter about the world dimensions
     width = rospy.get_param('/world_width', 20)
@@ -861,7 +910,8 @@ def main():
 
             smach.StateMachine.add('TRACK_BALL', TrackBall(),
                                    transitions={'registered':'MOVE',
-                                                'room_founded':'MOVE'},
+                                                'room_founded':'MOVE',
+                                                'ball_lost':'MOVE'},
                                    remapping={'track_ball_fatigue_counter_in':'sub_sm_fatigue_level',
                                               'track_ball_fatigue_counter_out':'sub_sm_fatigue_level',
                                               'track_room_to_find':'room_to_find'})
@@ -879,14 +929,16 @@ def main():
                                remapping={'rest_fatigue_counter_in':'fatigue_level',
                                           'rest_fatigue_counter_out':'fatigue_level'})
 
-        play_sub_sm = smach.StateMachine(outcomes=['sleepy_robot'],
+        play_sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'restart_moving'],
                               output_keys=['play_sub_sm_fatigue_level'],
                               input_keys=['play_sub_sm_fatigue_level'])
 
         with play_sub_sm :
 
             smach.StateMachine.add('INTERACT', Interact(),
-                                   transitions={'find':'FIND'},
+                                   transitions={'find':'FIND',
+                                                'stop_play':'restart_moving',
+                                                'tired':'sleepy_robot'},
                                    remapping={'interact_fatigue_counter_in':'play_sub_sm_fatigue_level',
                                               'interact_fatigue_counter_out':'play_sub_sm_fatigue_level',
                                               'interact_ball_to_find':'room_to_find'})
@@ -896,13 +948,15 @@ def main():
 
             smach.StateMachine.add('TRACK_BALL', TrackBall(),
                                    transitions={'registered':'FIND',
-                                                'room_founded':'INTERACT'},
+                                                'room_founded':'INTERACT',
+                                                'ball_lost':'FIND'},
                                    remapping={'track_ball_fatigue_counter_in':'play_sub_sm_fatigue_level',
                                               'track_ball_fatigue_counter_out':'play_sub_sm_fatigue_level',
                                               'track_room_to_find':'room_to_find'})
 
         smach.StateMachine.add('PLAY', play_sub_sm,
-                              transitions={'sleepy_robot':'REST'},
+                              transitions={'sleepy_robot':'REST',
+                                           'restart_moving':'MOVE'},
                               remapping={'play_sub_sm_fatigue_level':'fatigue_level',
                                          'play_sub_sm_fatigue_level':'fatigue_level'})
 
