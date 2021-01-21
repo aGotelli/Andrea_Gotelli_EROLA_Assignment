@@ -97,6 +97,10 @@ import robot_simulation_state_machines.track_ball_state as tbs
 
 from robot_simulation_state_machines.rest_state import Rest, sleep_station
 
+from robot_simulation_state_machines.find_state import Find
+
+from robot_simulation_state_machines.interact_state import Interact
+
 from robot_simulation_state_machines.robot_position import odometryReceived
 
 import robot_simulation_state_machines.robot_position as rp
@@ -121,100 +125,6 @@ import robot_simulation_state_machines.robot_position as rp
         -> The usage of explore lite//
 
 """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class Find(smach.State):
-    ##
-    #   \brief The __init__ constructor initializes the state outcome and input output keys
-    def __init__(self):
-            smach.State.__init__(self, outcomes=['track'])
-
-            self.explore_client = actionlib.SimpleActionClient('explore_action_server',ExploreAction)
-    ##
-    #   \brief  The member function executing the state behavior
-    #   \param userdata Is the structure containing the data shared among states.
-    #   \return a string consisting of the state outcome
-    #
-    #
-    def execute(self, userdata):
-        global ball_detected
-        self.explore_client.wait_for_server()
-
-        goal = ExploreGoal()
-
-        self.explore_client.send_goal(goal)
-        while not rospy.is_shutdown():
-            if imp.ball_detected:
-                print("A new ball has been detected!")
-                self.explore_client.cancel_all_goals()
-                return 'track'
-
-
-class Interact(smach.State):
-    def __init__(self):
-        smach.State.__init__(self,
-                             outcomes=['find','tired','stop_play'],
-                             input_keys=['interact_fatigue_counter_in'],
-                             output_keys=['interact_fatigue_counter_out','room_to_find'])
-
-        self.person_srv_client = rospy.ServiceProxy('/person_decision', PersonCommand)
-        self.time_in_play = 0.0
-
-    def execute(self, userdata):
-        global colors
-        min_time = 100
-        max_time = 200
-        self.time_in_play = random.randint(min_time, max_time)
-        init_time = rospy.Time.now().to_sec()
-        while not rospy.is_shutdown():
-            time_elapsed = rospy.Time.now().to_sec() - init_time
-            if time_elapsed >= self.time_in_play:
-                return 'stop_play'
-            person_pose = Pose()
-            person_pose.position.x = -5
-            person_pose.position.y = 8
-            print("Reaching person position")
-            reachPosition(person_pose, wait=True)
-
-            rospy.wait_for_service('/person_decision')
-            print("Waiting for a command from the person")
-            desired = self.person_srv_client()
-            print("Command received: go to the", desired.room)
-            available_room = False
-            for ball in colors :
-                if ball[1].registered and ball[1].associated_room == desired.room :
-                    available_room = True
-                    print("Going to room ", ball[1].associated_room )
-                    reachPosition(ball[1].pose,  wait=True)
-                    #   Increase level of fatigue
-                    userdata.interact_fatigue_counter_out = userdata.interact_fatigue_counter_in + 1
-                    #   Print a log to show the level of fatigue
-                    print('Level of fatigue : ', userdata.interact_fatigue_counter_in)
-                    #   Check is the robot is tired
-                    if isTired(userdata.interact_fatigue_counter_in) :
-                        #   Print a log to inform about the fact that the robot is tired
-                        print('Robot is tired of moving...')
-                        #   Return 'tired' to change the state
-                        return 'tired'
-            if not available_room :
-                print("The room ",desired.room ," is not available yet...")
-                userdata.room_to_find = ball[1].associated_room
-                return 'find'
-
-
 
 ##
 #   \brief __main__ intializes the ros node and the smach state machine
@@ -283,7 +193,7 @@ def main():
     imp.max_speed = rospy.get_param('/max_speed', 0.5)
 
     print("fatigue_threshold" , ms.fatigue_threshold)
-    print("maximum_dead_time" , maximum_dead_time)
+    print("maximum_dead_time" , tbs.maximum_dead_time)
 
     ms.time_before_change_target = rospy.get_param('/time_before_change_target', 40.0)
 
