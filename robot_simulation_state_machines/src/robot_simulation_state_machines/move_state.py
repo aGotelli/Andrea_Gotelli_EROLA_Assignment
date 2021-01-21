@@ -3,6 +3,7 @@ import random
 import rospy
 import smach
 import smach_ros
+import actionlib
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Pose
