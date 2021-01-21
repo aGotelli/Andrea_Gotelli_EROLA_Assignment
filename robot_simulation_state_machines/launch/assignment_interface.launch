@@ -5,7 +5,7 @@
 
     <!-- Parameters to define the sleeping position -->
     <param name="/sleep_x_coord" value="-5" />
-    <param name="/sleep_y_coord" value="-8" />
+    <param name="/sleep_y_coord" value="7" />
 
     <!-- Parameters to define the interval of time the ball remains hidden on start -->
     <param name="/minimum_time_onstart"      value="30" />
