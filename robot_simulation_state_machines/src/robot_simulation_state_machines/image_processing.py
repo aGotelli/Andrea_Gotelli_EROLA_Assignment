@@ -217,21 +217,23 @@ def findBallIn(hsv_image, index = 0):
 
 def registerRoom(robot_pose):
     global rooms_list
-    for index in range( len(rooms_list) ):
-        if rooms_list[index][1].in_cam_view :
-            rooms_list[index][1].is_registered = True
-            rooms_list[index][1].position = robot_pose
-            print("The ", rooms_list[index][0], " is now available.")
-            return rooms_list[index][0]
+    #   Check the ball that is in front of the robot
+    for room in rooms_list:
+        if room[1].in_cam_view :
+            room[1].is_registered = True
+            room[1].position = robot_pose
+            print("The ", room[0], " is now available.")
+            return room[0]
+
 
 
 def sarCallback(req):
     global rooms_list
     av_room_list =[]
     av_room_list.append("Available room(s): ")
-    for index in range( len(rooms_list) ):
-        if rooms_list[index][1].is_registered :
-            av_room_list.append(rooms_list[index][0])
+    for room in rooms_list :
+        if room[1].is_registered:
+            av_room_list.append(room[0])
     if len(av_room_list) == 1:
         av_room_list.append("None")
     return ShowAvailableRoomsResponse(av_room_list)
