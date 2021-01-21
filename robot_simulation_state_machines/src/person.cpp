@@ -5,13 +5,14 @@
 #include <cstdlib>
 
 static std::vector<std::string> rooms {
-  "entrance",
-  "closet",
-  "living_room",
-  "kitchen",
-  "bathroom",
-  "bedroom"
+  "Entrance",
+  "Closet",
+  "LivingRoom",
+  "Kitchen",
+  "Bathroom",
+  "Bedroom"
 };
+
 
 bool room_selection(robot_simulation_messages::PersonCommand::Request  &req,
          robot_simulation_messages::PersonCommand::Response &res)
