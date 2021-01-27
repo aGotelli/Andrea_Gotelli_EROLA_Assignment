@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-
-
-
+# This Python file uses the following encoding: utf-8
 ## @package robot_simulation_state_machines
 #   \file reach_goal.py
 #   \brief This file contains the a function allowing to simple call to the action service.
@@ -26,7 +24,7 @@
 #   This file contains an action service client which calls and eventually waits for the action service
 #   result. This choice was made in order to make this function available in more moduls.
 #
-# This Python file uses the following encoding: utf-8
+
 
 import roslib
 import rospy
@@ -81,6 +79,6 @@ def reachPosition(pose, wait=False, verbose=False):
     goal.target_pose.pose.orientation.w = 1
 
     planning_client.send_goal(goal)
-
+    #   If specified make this function blocking
     if wait:
         planning_client.wait_for_result()

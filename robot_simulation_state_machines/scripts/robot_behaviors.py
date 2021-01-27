@@ -33,6 +33,7 @@
 #   The states machines are defined following the rules of the smach library. The class that they uses in order to
 #   instantiate every state and behavior for the robot are taken from the respective file.
 #
+
 import roslib
 import rospy
 import smach
@@ -71,8 +72,6 @@ from robot_simulation_messages.srv import ShowAvailableRooms, ShowAvailableRooms
 from explore_lite.msg import ExploreAction, ExploreGoal
 
 
-
-#from robot_simulation_state_machines.image_processing import imageReceived
 import robot_simulation_state_machines.image_processing as imp
 from robot_simulation_state_machines.image_processing import imageReceived, findBallIn, registerRoom, sarCallback
 
