@@ -1,3 +1,26 @@
+#!/usr/bin/env python3
+# This Python file uses the following encoding: utf-8
+## @package robot_simulation_state_machines
+#   \file track_ball_state.py
+#   \brief This file contains the class declaration for the state TrackBall
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 27/01/2021
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#        [None]
+#
+#   Publishes to: <BR>
+#        [None]
+#
+#   Service : <BR>
+#        [None]
+#
+#
+
+
 import math
 import rospy
 import smach
