@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
+# This Python file uses the following encoding: utf-8
 ## @package robot_simulation_state_machines
 #   \file robot_behaviors.py
 #   \brief This file contains the state machine for the states defining the robot behaviors.
@@ -19,11 +19,9 @@
 #
 #   Subscribes to: <BR>
 #        camera1/image_raw/compressed
-#        joint_neck_position_controller/state
 #        odom
 #
 #   Publishes to: <BR>
-#        joint_neck_position_controller/command
 #        cmd_vel
 #
 #   Service : <BR>
@@ -31,21 +29,10 @@
 #
 #   Description :
 #
-#   This file uses smach libraries to generate two state machines, which are used to control the
-#   behaviors of the robot. Specifically, the state machines defines the transition from a state to
-#   another using the interface provided by smach. There is a top level state machine defining two
-#   of the three main robot behaviors. The last behavior is defined by the states of a sub state
-#   machine.
-#   The states are defined in the respective classes, and the transistions are automatically performed
-#   by the state machine from the smach libraries.
+#   This file uses smach libraries to generate a nested state machine which is able to simulate the robot behaviors.
+#   The states machines are defined following the rules of the smach library. The class that they uses in order to
+#   instantiate every state and behavior for the robot are taken from the respective file.
 #
-# This Python file uses the following encoding: utf-8
-
-
-
-# /move_base_simple/goal
-
-
 import roslib
 import rospy
 import smach
@@ -92,18 +79,20 @@ from robot_simulation_state_machines.image_processing import imageReceived, find
 import robot_simulation_state_machines.move_state as ms
 from robot_simulation_state_machines.move_state import Move
 
-from robot_simulation_state_machines.track_ball_state import TrackBall, laserReadingCallback
 import robot_simulation_state_machines.track_ball_state as tbs
+from robot_simulation_state_machines.track_ball_state import TrackBall, laserReadingCallback
 
-from robot_simulation_state_machines.rest_state import Rest, sleep_station
+import robot_simulation_state_machines.rest_state as rs
+from robot_simulation_state_machines.rest_state import Rest
+
+import robot_simulation_state_machines.robot_position as rp
+from robot_simulation_state_machines.robot_position import odometryReceived
 
 from robot_simulation_state_machines.find_state import Find
 
 from robot_simulation_state_machines.interact_state import Interact
 
-from robot_simulation_state_machines.robot_position import odometryReceived
 
-import robot_simulation_state_machines.robot_position as rp
 
 
 
@@ -116,13 +105,9 @@ import robot_simulation_state_machines.robot_position as rp
 
 
     Questions:
-        -> How to move classes in files... Problems with global and initializations...//
-        -> Is it ok to have two states referring to the same class?//
-        -> How to increase the level of fatigue<? each time?//
-        -> Still crashing into walls sometimes//
+
         -> If detects a ball and then another one?
-        -> How to pass references in phyton?
-        -> The usage of explore lite//
+        -> Ok the import ..... as and from ..... import
 
 """
 
@@ -182,8 +167,8 @@ def main():
     ms.height = rospy.get_param('/world_height', 20)
 
     #   Retrieve parameters about the sleeping position
-    sleep_station.position.x = rospy.get_param('/sleep_x_coord', 0)
-    sleep_station.position.y = rospy.get_param('/sleep_y_coord', 0)
+    rs.sleep_station.position.x = rospy.get_param('/sleep_x_coord', 0)
+    rs.sleep_station.position.y = rospy.get_param('/sleep_y_coord', 0)
 
     #   Retrieve the parameters of the fatigue threshold and max dead time
     ms.fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
