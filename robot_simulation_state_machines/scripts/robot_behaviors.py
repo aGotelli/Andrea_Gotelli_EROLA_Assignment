@@ -179,7 +179,7 @@ def main():
     print("fatigue_threshold" , ms.fatigue_threshold)
     print("maximum_dead_time" , tbs.maximum_dead_time)
 
-    ms.time_before_change_target = rospy.get_param('/time_before_change_target', 40.0)
+    ms.target_checking_rate = rospy.get_param('/time_before_change_target', 40.0)
 
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['behavior_interface'])
