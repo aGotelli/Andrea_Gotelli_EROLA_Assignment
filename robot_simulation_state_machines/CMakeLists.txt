@@ -177,7 +177,7 @@ target_link_libraries(${PROJECT_NAME}_person
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
-   scripts/robot_behaviors.py scripts/move_robot.py scripts/move_ball.py scripts/ball_behaviors.py
+   scripts/robot_behaviors.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

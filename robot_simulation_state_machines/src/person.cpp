@@ -1,3 +1,33 @@
+/**
+ * \file person.cpp
+ * \brief This files emulates the a person giving commands to a robot
+ * \author Andrea Gotelli
+ * \version 0.1
+ * \date 27/01/2021
+ *
+ *
+ * \details
+ *
+ * Subscribes to: <BR>
+ *    ° [None]
+ *
+ * Publishes to: <BR>
+ *    ° /PersonCommand
+ *
+ * Service : <BR>
+ *    ° /person_decision
+ *
+ * Description :
+ *
+ * This node simulates a person behavior. The person is assumed to want to play with the robot at some
+ * time randomly. The person calls the robot to play in an interval indicated with the use of the parameters:
+ * minum_time_btw_calls and maximum_time_btw_calls.
+ * It publishes the command in the topic: /PersonCommand. It also simulates a person taking time to chose the room.
+ * This is done in the service callback, which waits for some time before giving the random answer.
+ *
+ */
+
+
 #include "ros/ros.h"
 #include <std_msgs/String.h>
 #include <robot_simulation_messages/PersonCommand.h>
@@ -42,7 +72,6 @@ void CallToPlay(ros::TimerEvent, ros::Timer* timer)
 {
   //  Create an publish an empty message
   command_to_play.publish( std_msgs::String() );
-
   //  Reset the timer
   timer->stop();
   timer->setPeriod( waitingPeriod() );
@@ -63,9 +92,17 @@ bool roomSelection(robot_simulation_messages::PersonCommand::Request  &,
 {
   std::random_shuffle(rooms.begin(), rooms.end());
   res.room = rooms.front();
+  auto decision_time = waitingPeriod(2,4);
+  decision_time.sleep();
   return true;
 }
 
+/*!
+ * \brief main initialises the node and interfaces.
+ *
+ * This function initialises the node, the node handle, the publisher and the service provider needed for the simulation of the
+ * person behavior.
+ */
 int main(int argc, char **argv)
 {
   //  Init randomness

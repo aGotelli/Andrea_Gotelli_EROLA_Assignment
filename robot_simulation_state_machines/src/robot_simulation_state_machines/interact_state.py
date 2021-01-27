@@ -32,7 +32,7 @@ import robot_simulation_state_machines.image_processing as imp
 
 
 ##
-#   \class TrackBall
+#   \class Interact
 #   \brief This class defines the state of the state machine corresponding to the robot interacting with the person.
 #
 #   This class inheritates from smach and it consist of a state in the state machine. The state
@@ -72,11 +72,11 @@ class Interact(smach.State):
     #   the function consists in a loop which is interrupted only with some instance checking. The first thing that is
     #   checked is that the time elapsed since the robot is in this state is bigger than a given threshold. In this case,
     #   the return key 'stop_play' brings the robot back in the Normal behavior. It then orders the robot to reach the person
-    #   postion, which is stored as a memeber of the class, with a call of the blocking version of reachPosition.
+    #   postion, which is stored as a memeber of the class, with a call of the blocking version of reachPosition().
     #   Once the robot has reached the person position, it then calls the service for obtaining an order from the person: the
     #   specification of a room to reach. Once this information is obtained then it looks if the corresponding room is the list
     #   has been registered, in which case it will command the robot to reach the associated position (again with a call of the
-    #   blocking version of reachPosition). The choice of usiing the blocking version is for prevent the robot of being "distracted"
+    #   blocking version of reachPosition()). The choice of using the blocking version is for prevent the robot of being "distracted"
     #   by the detection of other balls in the environment. On the other hand, if the room is not yet registed, it returns the
     #   outout key 'find' in order to switch state to Find and look for the requested room.
     #

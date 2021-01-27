@@ -76,7 +76,7 @@ radius_threshold = 100
 #   \param  ros_data Is the image received, which is of type sensor_msgs/CompressedImage.
 #
 #   This funtion first converts the image from the type received from the camera to an imgace which can be
-#   processed by OpenCV. It then calls a separate function for the image processing. It relies directly
+#   processed by OpenCV. It then calls a separate function for the image processing: findBallIn(). It relies directly
 #   on the results of the image processing requiring the center and the radius of the enclosing circle as
 #   well as the image with the enclosing circle drawn. While the image is directly displayed, the center and
 #   radius of the circle are used to compute the twist required to move the robot a certain distance to the ball,

@@ -852,6 +852,7 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = ../robot_simulation_state_machines/scripts \
+                         ../robot_simulation_state_machines/src \
                          ../robot_simulation_state_machines/src/robot_simulation_state_machines \
                          ../robot_simulation_messages/action
 

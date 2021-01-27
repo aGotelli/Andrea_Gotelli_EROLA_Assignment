@@ -129,7 +129,7 @@ class Move(smach.State):
     #
     #   This function generates a new target. It uses the passed (x,y) position if given. Otherwise, it
     #   generates it randomly in within the width and height specified.
-    #   It computes the current distance from the target and then makes use of the non blocking version of reachPosition
+    #   It computes the current distance from the target and then makes use of the non blocking version of reachPosition()
     #   to make the robot reach the newly generated target.
     #
     def newTarget(self, target=None):
@@ -180,8 +180,11 @@ class Move(smach.State):
     #   \return a string consisting of the state outcome
     #
     #   This member function is responsible of simulating the Move behavior for the robot.
-    #   In the initialization it instantiate a new target for the robot. After this initialization,
-    #   it enters in a loop which can be termined by a sequence of instance checking.
+    #   In the initialization it instantiate a new target for the robot, calling the member
+    #   function newTarget(). It then initializes a timer with the callback checkReachability(). This
+    #   timer will then periodically call its callback and so mark the target as reacheable (or not)
+    #   depending on the situation.
+    #   After this initialization, it enters in a loop which can be termined by a sequence of instance checking.
     #   First, it checks whether a command from the person has been received, in which case it changes
     #   the state with 'play' which triggers the Play behavior.
     #   If a ball has been detected, then the robot is stopped and the function returns 'tracking' to move to
@@ -191,7 +194,7 @@ class Move(smach.State):
     #   In the case non of the previously occurred, the function gets the state of the move_base service in order to
     #   establish is the target has been reached. Once the target position has been reached, the fatigue counter is increased
     #   and it is compared with the threshold using isTired. If the robot is tired the returning statement 'tired' brings it
-    #   into the Rest behavior. Otherwise, a new target position is generated using newTarget.
+    #   into the Rest behavior. Otherwise, a new target position is generated using newTarget().
     #   The timer for the reachability checking is shutdown each time this memeber function goes out of scope,
     #   in order to avoid having multiple shadow timers running in the background.
     #
