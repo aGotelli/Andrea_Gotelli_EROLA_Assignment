@@ -191,11 +191,11 @@ def main():
         # Add states to the container
 
         #   Create the sub state machine for the normal behavior
-        sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'time_to_play'],
+        normal_sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'time_to_play'],
                                     output_keys=['sub_sm_fatigue_level'],
                                     input_keys=['sub_sm_fatigue_level'])
 
-        with sub_sm:
+        with normal_sub_sm:
 
             smach.StateMachine.add('MOVE', Move(),
                                    transitions={'tired':'sleepy_robot',
@@ -216,7 +216,7 @@ def main():
 
 
 
-        smach.StateMachine.add('NORMAL', sub_sm,
+        smach.StateMachine.add('NORMAL', normal_sub_sm,
                                transitions={'sleepy_robot':'REST',
                                             'time_to_play':'PLAY'},
                                remapping={'sub_sm_fatigue_level':'fatigue_level',
