@@ -1,3 +1,28 @@
+#!/usr/bin/env python3
+# This Python file uses the following encoding: utf-8
+## @package robot_simulation_state_machines
+#   \file rest_state.py
+#   \brief This file contains the class declaration for the class describing the Rest behavior.
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 27/01/2021
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#        [None]
+#
+#   Publishes to: <BR>
+#        [None]
+#
+#   Service : <BR>
+#        [None]
+#
+#   Description :
+#
+#   This file contains the declaration of the class Rest and the global variable sleep_station which allow to simulate the
+#   behavior of the robot going to sleep when tired.
+#
 import rospy
 import smach
 import smach_ros
