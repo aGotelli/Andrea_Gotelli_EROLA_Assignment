@@ -167,7 +167,8 @@ class TrackBall(smach.State):
                     #   Make sure the robot stays still
                     null_twist = Twist()
                     robot_controller.publish(null_twist)
-                    print("Ball Reached")
+                    #   Register the room
+                    imp.registerRoom(rp.robot_pose)
                     #   Increment the counter for the fatigue as the robot has moved
                     userdata.track_ball_fatigue_counter_out = userdata.track_ball_fatigue_counter_in + 1
                     print('Level of fatigue : ', userdata.track_ball_fatigue_counter_in)
