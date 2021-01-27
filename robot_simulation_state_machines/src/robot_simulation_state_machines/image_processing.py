@@ -1,3 +1,30 @@
+#!/usr/bin/env python3
+# This Python file uses the following encoding: utf-8
+## @package robot_simulation_state_machines
+#   \file image_processing.py
+#   \brief This file contains the functions needed to obtain information from the camera video
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 22/10/2020
+#
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#        [None]
+#
+#   Publishes to: <BR>
+#        [None]
+#
+#   Service : <BR>
+#        [None]
+#
+#   Description :
+#
+#   This file contains function and global variables declarations that are required for the image processing. The functions
+#   are divided in the one strictly related to the image processing and the one more oriented to the robot control.
+#
+
 import rospy
 from sensor_msgs.msg import CompressedImage
 import numpy as np
@@ -45,22 +72,18 @@ radius_threshold = 100
 
 
 ##
-#   \brief  imageReceived   Is the subscriber callback for the images published by the camera. It also performs
-#           some image processing.
+#   \brief  imageReceived   Is the subscriber callback for the images published by the camera.
 #   \param  ros_data Is the image received, which is of type sensor_msgs/CompressedImage.
 #
 #   This funtion first converts the image from the type received from the camera to an imgace which can be
-#   processed by OpenCV. Then it performs some image processing first by blurring and filtering the image,
-#   then by selecting element of a certain color. The color is indicated in the function itself.
-#   After having detected the object of given color, it takes into account only the bigger of them.
-#   It evaluates the circle which contains the object, computing the center and the radius.
-#   Based on the value of the radius, the function determines either if the robot is close to the
-#   ball or if it should move closer to it. In this last case, it computes a geometry_msgs/Twist message
-#   containing an adjustement of the heading, for having the ball centered in the image, and a linear
-#   velocity to move the robot closer to the ball. In the computation of the linear velocity, it limits the
-#   maximum value in order to avoid dangerous soaring. The limitation must be stronger in the first instants of the
-#   of the motion and less invasive later. For this reason the twist is linearly incremented from the 0% to the
-#   100% of the computed value in the first 3 seconds of motion.
+#   processed by OpenCV. It then calls a separate function for the image processing. It relies directly
+#   on the results of the image processing requiring the center and the radius of the enclosing circle as
+#   well as the image with the enclosing circle drawn. While the image is directly displayed, the center and
+#   radius of the circle are used to compute the twist required to move the robot a certain distance to the ball,
+#   which we also wanto to center in the image of the camera.
+#   In the computation of the linear velocity, it limits the maximum value in order to avoid dangerous soaring.
+#   The limitation must be stronger in the first instants of the of the motion and less invasive later.
+#   For this reason the twist is linearly incremented from the 0% to its 100% in the first 3 seconds of motion.
 #   It also changes the value or the gobal boolean ball_detected to True.
 #   On the other hand,if the radius is equal or bigger than a given threshold, it assumes that the ball is
 #   close to the robot. This will be one of the two key points in order to establish whether the ball
@@ -80,74 +103,71 @@ def imageReceived(ros_data):
     #   Update last detection timestamp
     time_since = rospy.Time.now().to_sec() - last_detection
 
-    #### direct conversion to CV2 ####
+    #   Direct conversion to CV2
     np_arr = np.frombuffer(ros_data.data, np.uint8)
     image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
-
     blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
-    (cnts, circle_color) = findBallIn(hsv)
+    #   Process the image to find one of the described balls
+    (image_np, center, radius, succeeded) = findBallIn(hsv, image_np)
+    if succeeded :
+        #   Check is detection happened after some non-detection time
+        if not ball_detected:
+            detection_time  = rospy.Time.now().to_sec()
+        #   Compute the twist to center the ball in the camera frame and bring the
+        #   enclosing circle to a certain radius.
+        robot_twist = Twist()
+        robot_twist.angular.z = -0.005*(center[0]-250)
+        robot_twist.linear.x = 0.02*( (radius_threshold*1.10)-radius)
 
-    center = None
-    # only proceed if at least one contour was found
-    if len(cnts) > 0:
-        # find the largest contour in the mask, then use
-        # it to compute the minimum enclosing circle and
-        # centroid
-        c = max(cnts, key=cv2.contourArea)
-        ((x, y), radius) = cv2.minEnclosingCircle(c)
-        M = cv2.moments(c)
-        center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-        # only proceed if the radius meets a minimum size
-        if radius > 10:
-            #   Check is detection happened after some non-detection time
-            if not ball_detected:
-                detection_time  = rospy.Time.now().to_sec()
-
-            # draw the circle and centroid on the frame,
-            # then update the list of tracked points
-            cv2.circle(image_np, (int(x), int(y)), int(radius),
-                       circle_color, 2)
-            cv2.circle(image_np, center, 5, (255, 255, 255), -1)
-            robot_twist = Twist()
-            robot_twist.angular.z = -0.005*(center[0]-250)
-            robot_twist.linear.x = 0.02*( (radius_threshold*1.10)-radius)
-
-            scale = 1
-            time_from_first_detection = rospy.Time.now().to_sec() - detection_time
-            #   Increase linearly for 3 seconds to avoid soaring
-            if ( time_from_first_detection <= 3.0 ):
-                scale = time_from_first_detection/3
-            #   Limit the robot maximum linear speed
-            if abs(robot_twist.linear.x) > max_speed :
-                robot_twist.linear.x = np.sign(robot_twist.linear.x)*max_speed
-            #   Increase linearly
-            robot_twist.linear.x = robot_twist.linear.x*scale
-            #   Finalize detection
-            ball_detected = True
-            #   Reset time of last detection
-            last_detection = rospy.Time.now().to_sec()
-            #   Set to zero the time interval
-            time_since = 0.0
-            #   Check if the ball is reached
-            if ( radius >= radius_threshold ):
-                #   The robot has reached the ball
-                ball_is_close = True
-            else:
-                ball_is_close = False
+        scale = 1
+        time_from_first_detection = rospy.Time.now().to_sec() - detection_time
+        #   Increase linearly for 3 seconds to avoid soaring
+        if ( time_from_first_detection <= 3.0 ):
+            scale = time_from_first_detection/3
+        #   Limit the robot maximum linear speed
+        if abs(robot_twist.linear.x) > max_speed :
+            robot_twist.linear.x = np.sign(robot_twist.linear.x)*max_speed
+        #   Increase linearly
+        robot_twist.linear.x = robot_twist.linear.x*scale
+        #   Finalize detection
+        ball_detected = True
+        #   Reset time of last detection
+        last_detection = rospy.Time.now().to_sec()
+        #   Set to zero the time interval
+        time_since = 0.0
+        #   Check if the ball is reached
+        if ( radius >= radius_threshold ):
+            #   The robot has reached the ball
+            ball_is_close = True
+        else:
+            ball_is_close = False
     else:
         ball_detected = False
         robot_twist = Twist()
-
+    #   Proceed in displaying the image
     cv2.imshow('robot_camera', image_np)
     cv2.waitKey(1)
 
 
 
 
-
+##
+#   \class Ball
+#   \brief Defines the caracteristic of a ball associated to a room
+#
+#   This class contains a list of memebers which allows to easily couple a ball with a room. Each instance of
+#   this class is associated to a string which uniquely defines a room. This class contains memebers for the
+#   color range of a ball, it's position in the map and some additional information like if the ball is currently
+#   in the camera field of view, if has been registerd and the color of its enclosing circle.
 class Ball:
+    ##
+    #   \brief __init__ initialises the memebers of the class.
+    #   \param lower_range_ is the lower RGB color range.
+    #   \param upper_range_ is the upper RGB color range.
+    #   \param circle_color_ is the color for the enclosing circle.
+    #
     def __init__(self, lower_range_, upper_range_, circle_color_):
         self.lower_range = lower_range_
         self.upper_range = upper_range_
@@ -157,13 +177,15 @@ class Ball:
         self.is_registered = False
 
 
-blue_ball    = Ball( lower_range_=(100, 50, 50), upper_range_=(130, 255, 255),   circle_color_=(255, 0, 0)    )
+blue_ball    = Ball( lower_range_=(100, 50, 50), upper_range_=(130, 255, 255),   circle_color_=(255, 0, 0)    ) 
 red_ball     = Ball( lower_range_=(0, 50, 50),   upper_range_=(5, 255, 255),     circle_color_=(0, 0, 255)    )
 green_ball   = Ball( lower_range_=(50, 50, 50),  upper_range_=(70, 255, 255),    circle_color_=(0, 255, 0)    )
 yellow_ball  = Ball( lower_range_=(25, 50, 50),  upper_range_=(35, 255, 255),    circle_color_=(0, 251, 253)  )
 magenta_ball = Ball( lower_range_=(125, 50, 50), upper_range_=(150, 255, 255),   circle_color_=(10, 135, 255) )
 black_ball   = Ball( lower_range_=(0, 0, 0),     upper_range_=(5,50,50),         circle_color_=(0, 0, 0)      )
 
+##
+#   \brief rooms_list defines a list of ball with the associated room name.
 rooms_list = np.array([ ( 'Entrance',   blue_ball       ),
                         ( 'Closet',     red_ball        ),
                         ( 'LivingRoom', green_ball      ),
@@ -172,61 +194,103 @@ rooms_list = np.array([ ( 'Entrance',   blue_ball       ),
                         ( 'Bedroom',    black_ball      )])
 
 
-def findBallIn(hsv_image, index = 0):
+
+
+##
+#   \brief findBallIn performs image processing in order to find one of the described balls in the image.
+#   \param hsv_image is the image that will be proceed
+#   \param image_np is the non processed image
+#   \param index is at which element of the list of ball look for
+#
+#   This function is a recursive calling function which aims to loop into the room list and search for the respective ball
+#   in the image.
+#   It performs the passages of a classic image processing applying some lower and upper color ranges accordingly with the
+#   ball to find. If some contours have been found, only the bigger contour is kept and then the image processing continues
+#   computing the center and radius of the minimum enclosing circle. The radius is compared with a minimum threshold to
+#   establish if the founded contour could be a ball or not. In case of a positive response, the function returns: the center
+#   and the radius of the minimum enclosing circle and the non processed image with the enclosing circle drawn on it.
+#   Finally, some instance checking is also performed. In the case the room corresponding to the current iteration is
+#   already registered, it not necessary to do any further processing and a recursive call is executed. Moreover, this
+#   function handles the situation where a ball disappears from the camera field of view or when the index has reached the
+#   end of the list of room array.
+#
+def findBallIn(hsv_image, image_np, index = 0):
     global ball_detected
     global ball_is_close
     global rooms_list
 
+    #   If ball is marker ad registerd we don't need to porcess it again
+    if rooms_list[index][1].is_registered :
+        center = (0, 0)
+        radius = 0.0
+        succeeded = False
+        return image_np, center, radius, succeeded
+    #   Obtain the RGB ranges for the ball associated with the current room
     lowerLimit = rooms_list[index][1].lower_range
     upperLimit = rooms_list[index][1].upper_range
     circle_color = rooms_list[index][1].circle_color
-
+    #   Perform the contour detection
     mask = cv2.inRange(hsv_image, lowerLimit, upperLimit)
     mask = cv2.erode(mask, None, iterations=2)
     mask = cv2.dilate(mask, None, iterations=2)
-    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
-
-    #   If ball is marker ad registerd we don't need to porcess it again
-    if rooms_list[index][1].is_registered :
+    #   If at least one contour is found continue with the image processing
+    if len(cnts) > 0:
+        #   Mark the ball as currently seen
+        rooms_list[index][1].in_cam_view = True
+        #   Find the largest contour in the mask, then use it to compute the minimum
+        #   enclosing circle and centroid
+        c = max(cnts, key=cv2.contourArea)
+        ((x, y), radius) = cv2.minEnclosingCircle(c)
+        M = cv2.moments(c)
+        center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+        # only proceed if the radius meets a minimum size
+        if radius > 10:
+            #   Draw the circle and centroid on the frame, then update the list of tracked points
+            cv2.circle(image_np, (int(x), int(y)), int(radius), circle_color, 2)
+            cv2.circle(image_np, center, 5, (255, 255, 255), -1)
+            succeeded = True
+            return image_np, center, radius, succeeded
+    #   Else if the this room was in the camera field of view now it may not be the case
+    elif rooms_list[index][1].in_cam_view :
+        #   Set back the ball as not currently in the camera field of view
         rooms_list[index][1].in_cam_view = False
-        ball_is_close = False
-        ball_detected = False
-        cnts = np.array([])
-        circle_color = (255, 255, 255)
-        return cnts, circle_color
-    else :
-        if len(cnts) > 0:
-            #   Mark the ball as currently seen
-            rooms_list[index][1].in_cam_view = True
-            return cnts, circle_color
-        elif rooms_list[index][1].in_cam_view :
-            #   Set back the ball as not currently in the camera field of view
-            rooms_list[index][1].in_cam_view = False
 
+    #   Check if this was the last element of the list
     if (index == len(rooms_list) - 1):
-        circle_color = (255, 255, 255)
-        return cnts, circle_color
+        center = (0, 0)
+        radius = 0.0
+        succeeded = False
+        return image_np, center, radius, succeeded
+    else:
+        #   Continue with a recursive call
+        index = index + 1
+        return findBallIn(hsv_image, image_np, index)
 
-    index = index + 1
-    return findBallIn(hsv_image, index)
-
-
-
-
+##
+#   \brief registerRoom marks a room as registered with the respective position in the map.
+#   \param robot_pose is the current postion of the robot when registering the ball
+#   \return the name of the room registerd.
+#
+#   When this function is called means that the ball in front of the robot is reached and needs to be registerd.
+#   To do so, it looks in the list of room for the ball that is in the camera field of view. Once found the
+#   ball of interest, it marks it as registerd and saves the the current robot position.
+#
 def registerRoom(robot_pose):
     global rooms_list
-    #   Check the ball that is in front of the robot
+    #   Check which ball is in front of the robot
     for room in rooms_list:
         if room[1].in_cam_view :
+            #   Perform saving
             room[1].is_registered = True
             room[1].position = robot_pose
             print("The ", room[0], " is now available.")
             return room[0]
 
 
-
+##
+#   \brief  sarCallback is a service callback which returns the list of registered rooms.
 def sarCallback(req):
     global rooms_list
     av_room_list =[]
@@ -237,4 +301,3 @@ def sarCallback(req):
     if len(av_room_list) == 1:
         av_room_list.append("None")
     return ShowAvailableRoomsResponse(av_room_list)
-
