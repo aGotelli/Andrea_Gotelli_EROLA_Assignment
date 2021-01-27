@@ -52,7 +52,7 @@ fatigue_threshold = 0
 
 ##
 #   \brief target_checking_rate defines the rate at which the reachability of the target is checked.
-target_checking_rate = 0.0
+target_checking_rate = 40
 
 
 ##
