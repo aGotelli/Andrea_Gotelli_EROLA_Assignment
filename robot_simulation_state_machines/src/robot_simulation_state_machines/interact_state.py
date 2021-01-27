@@ -1,3 +1,28 @@
+#!/usr/bin/env python3
+# This Python file uses the following encoding: utf-8
+## @package robot_simulation_state_machines
+#   \file interact_state.py
+#   \brief This file contains the declaration of the class describing the Interact state.
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 27/01/2021
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#        [None]
+#
+#   Publishes to: <BR>
+#        [None]
+#
+#   Service : <BR>
+#        [None]
+#
+#   Description :
+#
+#   This file contains the declaration of the class Move and the some global variables and functions needed to describe the
+#   state of the robot moving randomly in the environment.
+#
 import rospy
 import smach
 import smach_ros

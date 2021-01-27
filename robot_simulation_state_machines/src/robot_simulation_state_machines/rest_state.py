@@ -2,7 +2,7 @@
 # This Python file uses the following encoding: utf-8
 ## @package robot_simulation_state_machines
 #   \file rest_state.py
-#   \brief This file contains the class declaration for the class describing the Rest behavior.
+#   \brief This file contains the declaration of the class describing the Rest behavior.
 #   \author Andrea Gotelli
 #   \version 0.2
 #   \date 27/01/2021
