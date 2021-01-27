@@ -1,3 +1,28 @@
+#!/usr/bin/env python3
+# This Python file uses the following encoding: utf-8
+## @package robot_simulation_state_machines
+#   \file move_state.py
+#   \brief This file contains the class declaration for the class describing the Move state.
+#   \author Andrea Gotelli
+#   \version 0.2
+#   \date 27/01/2021
+#
+#   \details
+#
+#   Subscribes to: <BR>
+#        [None]
+#
+#   Publishes to: <BR>
+#        [None]
+#
+#   Service : <BR>
+#        [None]
+#
+#   Description :
+#
+#   This file contains the declaration of the class Move and the some global variables and functions needed to describe the
+#   state of the robot moving randomly in the environment.
+#
 import math
 import random
 import rospy
@@ -14,18 +39,20 @@ import robot_simulation_state_machines.robot_position as rp
 
 
 ##
-#   \brief Define the width of the arena.
+#   \brief Define the width of the house.
 width = 0
 
 ##
-#   \brief Define the height of the arena.
+#   \brief Define the height of the house.
 height = 0
 
 ##
-#   \brief Defines the maximum level of fatigue the robot can andle before going to sleep.
+#   \brief fatigue_threshold defines the maximum level of fatigue the robot can andle before going to sleep.
 fatigue_threshold = 0
 
-time_before_change_target = 0.0
+##
+#   \brief target_checking_rate defines the rate at which the reachability of the target is checked.
+target_checking_rate = 0.0
 
 
 ##
@@ -43,7 +70,12 @@ def isTired(fatigue_level):
         return False
 
 
-
+##
+#   \brief compEuclidDist computes the Euclidean distance from two 2D position
+#   \param target is the target 2D position
+#   \param current is the current robot 2D position
+#   \return a double corresponding to the euclidean distance.
+#
 def compEuclidDist(target, current):
     delta_x = target.position.x - current.position.x
     delta_y = target.position.y - current.position.y
@@ -53,7 +85,7 @@ def compEuclidDist(target, current):
 
 ##
 #   \class Move
-#   \brief This class defines the state of the state machine corresponding to the robot randomly moving
+#   \brief This class defines the state of the state machine corresponding to the robot randomly moving in the environment.
 #
 #   This class inheritates from smach and it consist of a state in the state machine. The state
 #   that is represented here is the Move state. In this state the robot moves around randomly calling
@@ -68,7 +100,9 @@ class Move(smach.State):
     #   \param input_keys list of the possible input for this state (user data shared among states).
     #   \param output_keys list of the possible outputs for this state (user data shared among states).
     #
-    #   This member function initializes the state machine state. It follows the conventions for smach.
+    #   This member function initializes the state machine state. It follows the conventions for smach. Moreover, some members
+    #   are initialized. Specifically, the subscriber to the person willing messages is defined, as well as some other internal
+    #   parameters.
     #
     def __init__(self):
             smach.State.__init__(self,
@@ -79,15 +113,26 @@ class Move(smach.State):
             self.targetSeemsReacheable = True
             self.prev_dist = 0.0
             self.time_to_play = False
+            #   Declare the subscriber to the person willing
             self.sub = rospy.Subscriber("person_willing",String, self.commandReceived,  queue_size=1)
 
-
+    ##
+    #   \brief commandReceived is the Move member function callback for the Subscriber to the person messages
+    #   \param msg is the message containing the person willing.
     def commandReceived(self, msg):
         print("Received command to play")
         self.time_to_play = True
 
+    ##
+    #   \brief newTarget generates a new random position and command the robot to reach it
+    #   \param target specifies, if needed, a specific target to reach [default = None]
+    #
+    #   This function generates a new target. It uses the passed (x,y) position if given. Otherwise, it
+    #   generates it randomly in within the width and height specified.
+    #   It computes the current distance from the target and then makes use of the non blocking version of reachPosition
+    #   to make the robot reach the newly generated target.
+    #
     def newTarget(self, target=None):
-        self.targetSeemsReacheable = True
         #   Declare a geometry_msgs/Pose for the random position
         random_ = Pose()
         #   Define the random components (x, y) of this random position
@@ -98,21 +143,33 @@ class Move(smach.State):
             print("Using user-defined coordinates")
             random_.position.x = target[0]
             random_.position.y = target[1]
-        #   Call the service to reach this position
+        #   Define the target as reacheable by default
+        self.targetSeemsReacheable = True
+        #   Compute the current distance
         self.target = random_
         self.prev_dist = compEuclidDist(random_, rp.robot_pose)
-
+        #   Call the service to reach this position
         reachPosition(random_, verbose=True)
 
 
 
-
+    ##
+    #   \brief checkReachability control if the robot has moved forward to the target or not.
+    #
+    #   This function is a timer callback. It is executed periodically during the execution of this state.
+    #   The procedure is to check the previously computed euclidean distance with the current one. If it has
+    #   decreased, it means that the robot is moving forward the target. Otherwise, the robot is moving away from it.
+    #   This last situation usually occours when the robot is following an alternative path trying to reach an unreachable target.
+    #   Thus this member function changes the boolean member targetSeemsReacheable accordingly.
+    #
     def checkReachability(self, event):
         curr_dist = compEuclidDist(self.target, rp.robot_pose)
         print("Prev dist: ", self.prev_dist)
         print("Curr dist: ", curr_dist)
         if curr_dist >= self.prev_dist :
             self.targetSeemsReacheable = False
+            print("Target seems impossible to reach. Computing a new target")
+            self.newTarget()
         else:
             self.prev_dist = curr_dist
             self.targetSeemsReacheable = True
@@ -123,31 +180,38 @@ class Move(smach.State):
     #   \return a string consisting of the state outcome
     #
     #   This member function is responsible of simulating the Move behavior for the robot.
-    #   First it generates a random position, comanding the robot to reach it with the
-    #   non blocking version of reachPosition(). After this initialization, it recursively cheks if the
-    #   ball has been detected, in which case it uses the transition 'play' in order to move to the Play
-    #   behavior, which starts with the FollowBall state. On the other hand, if the ball is not detected,
-    #   it checks wheter the robot has reached the goal, looping in this double instances checking.
-    #   In the case the robot has reached the goal, in increases the level of fatigue also comparing it
-    #   with the fatigue_threshold with isTired(). In case of a positive response, it returns 'tired' in order
-    #   to trigger the Rest behavior.Finally, if the robot is not tired, it generates a random position and
-    #   it calls again the non blocking verison of reachPosition().
+    #   In the initialization it instantiate a new target for the robot. After this initialization,
+    #   it enters in a loop which can be termined by a sequence of instance checking.
+    #   First, it checks whether a command from the person has been received, in which case it changes
+    #   the state with 'play' which triggers the Play behavior.
+    #   If a ball has been detected, then the robot is stopped and the function returns 'tracking' to move to
+    #   the TrackBall state.
+    #   It is then the time to check the target reachability; if the target is marked as not reachable, then a new
+    #   is generated and used.
+    #   In the case non of the previously occurred, the function gets the state of the move_base service in order to
+    #   establish is the target has been reached. Once the target position has been reached, the fatigue counter is increased
+    #   and it is compared with the threshold using isTired. If the robot is tired the returning statement 'tired' brings it
+    #   into the Rest behavior. Otherwise, a new target position is generated using newTarget.
+    #   The timer for the reachability checking is shutdown each time this memeber function goes out of scope,
+    #   in order to avoid having multiple shadow timers running in the background.
     #
     def execute(self, userdata):
         global ball_detected
         global planning_client
-        global time_before_change_target
+        global target_checking_rate
+        #   Declare an empty room
         userdata.move_room_to_find = ''
-        #   Declare a geometry_msgs/Pose for the random position
+        #   Declare a new target
         self.newTarget()
-        #   Initialize the timer to check if the robot progress periodically
-        timer = rospy.Timer(rospy.Duration(time_before_change_target), self.checkReachability)
+        #   Initialize the timer to periodically check for the robot progress
+        timer = rospy.Timer(rospy.Duration(target_checking_rate), self.checkReachability)
         #   Main loop
         while not rospy.is_shutdown():
+            #   First check if a command is received
             if self.time_to_play:
                 timer.shutdown()
                 return 'play'
-            #   Check if the person has commanded play
+            #   Check if a ball has been detected
             if imp.ball_detected :
                 print("Ball detected stopping the robot!")
                 #   Stop the robot right there
@@ -155,26 +219,26 @@ class Move(smach.State):
                 #   Return 'plying' to change the state
                 timer.shutdown()
                 return 'tracking'
-            else :
-                if not self.targetSeemsReacheable:
-                    print("Target seems impossible to reach")
-                    print("Computing a new target")
+            #   Check target reachability
+            if not self.targetSeemsReacheable:
+                print("Target seems impossible to reach. Computing a new target")
+                self.newTarget()
+            #   If none of the previous was true, then continue with the Move behavior
+            #   Check if the target has been reached
+            state = planning_client.get_state()
+            if state == 3:
+                print("Reached the position!")
+                #   Increment the level of the robot fatigue
+                userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
+                #   Print a log to show the level of fatigue
+                print('Level of fatigue : ', userdata.move_fatigue_counter_in)
+                #   Check is the robot is tired
+                if isTired(userdata.move_fatigue_counter_in) :
+                    #   Print a log to inform about the fact that the robot is tired
+                    print('Robot is tired of moving...')
+                    #   Return 'tired' to change the state
+                    timer.shutdown()
+                    return 'tired'
+                else:
+                    print("Continuing to move")
                     self.newTarget()
-                #   If none of the previous was true, then continue with the Move behavior
-                state = planning_client.get_state()
-                if state == 3:
-                    print("Reached the position!")
-                    #   Increment the level of the robot fatigue
-                    userdata.move_fatigue_counter_out = userdata.move_fatigue_counter_in + 1
-                    #   Print a log to show the level of fatigue
-                    print('Level of fatigue : ', userdata.move_fatigue_counter_in)
-                    #   Check is the robot is tired
-                    if isTired(userdata.move_fatigue_counter_in) :
-                        #   Print a log to inform about the fact that the robot is tired
-                        print('Robot is tired of moving...')
-                        #   Return 'tired' to change the state
-                        timer.shutdown()
-                        return 'tired'
-                    else:
-                        print("Continuing to move")
-                        self.newTarget()
