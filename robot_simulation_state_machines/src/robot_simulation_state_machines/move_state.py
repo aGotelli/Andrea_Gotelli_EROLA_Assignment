@@ -162,10 +162,14 @@ class Move(smach.State):
     #   decreased, it means that the robot is moving forward the target. Otherwise, the robot is moving away from it.
     #   This last situation usually occours when the robot is following an alternative path trying to reach an unreachable target.
     #   Thus this member function changes the target using the memeber function newTarget().
+    #   Additionally, if the distance remains almost the same (the robot is not moving) then a new target is computed.
     #
     def checkReachability(self, event):
         curr_dist = compEuclidDist(self.target, rp.robot_pose)
-        if curr_dist >= self.prev_dist :
+        if curr_dist >= 0.95*self.prev_dist :
+            print("The robot seems stuck in position, computing a new target")
+            self.newTarget()
+        elif curr_dist >= self.prev_dist :
             print("Target seems impossible to reach. Computing a new target")
             self.newTarget()
         else:
