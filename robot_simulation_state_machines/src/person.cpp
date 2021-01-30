@@ -20,10 +20,11 @@
  * Description :
  *
  * This node simulates a person behavior. The person is assumed to want to play with the robot at some
- * time randomly. The person calls the robot to play in an interval indicated with the use of the parameters:
- * minum_time_btw_calls and maximum_time_btw_calls.
- * It publishes the command in the topic: /PersonCommand. It also simulates a person taking time to chose the room.
- * This is done in the service callback, which waits for some time before giving the random answer.
+ * time randomly. The person calls the robot to play in an interval which is in the range [600, 900] seconds
+ * corresponding to 10-15 minutes. When it decides to play with the robot, it publishes the command in the
+ * topic: /PersonCommand.
+ * It also simulates a person taking time to chose the room. This is done in the service callback,
+ * which waits for some time before giving the random answer.
  *
  */
 
@@ -96,9 +97,11 @@ void resetTimer()
  * \param res is the response of the service callback containing the room name
  * \return true, as this service cannot fail.
  *
- * This function is executed when the service is called. In its execusion, this function
- * randomly mexes the element in the vector rooms using std::random_shuffle. Then it picks
- * the first element of the randomly sorted vector.
+ * This function is executed when the service is called. In its execusion, first checks the robot intention.
+ * If the robot wants to play, it randomly mixes the elements in the vector rooms using std::random_shuffle.
+ * Then it picks the first element of the randomly sorted vector. In the second case, if the robot does not
+ * want to play anynore (information contained in the request: want_to_play) it calls resetTimer().
+ * This function returns true in both cases, as this service cannot fail.
  */
 bool roomSelection(robot_simulation_messages::PersonCommand::Request& request,
          robot_simulation_messages::PersonCommand::Response& res)
@@ -140,11 +143,12 @@ int main(int argc, char **argv)
   //  Initialize publisher
   command_to_play = nh.advertise<std_msgs::String>("PersonCommand", 1);
 
+  //  Wait initialization to stop before starting
   ros::Duration waiting_time(5);
   waiting_time.sleep();
 
-  //  Initialize the timer
-  auto_caller = nh.createTimer( waitingPeriod(5,5), CallToPlay, true );
+  //  Initialize the timer (first call not too far in the future)
+  auto_caller = nh.createTimer( waitingPeriod(200,300), CallToPlay, true );
 
   //  Main loop
   ros::spin();
