@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # This Python file uses the following encoding: utf-8
 ## @package robot_simulation_state_machines
-#   \file interact_state.py
+#   \file play_state.py
 #   \brief This file contains the declaration of the class describing the Interact state.
 #   \author Andrea Gotelli
 #   \version 0.2
@@ -30,9 +30,12 @@ from robot_simulation_state_machines.reach_goal import reachPosition
 import robot_simulation_state_machines.image_processing as imp
 
 
+##
+#   \brief max_play_time defines the maximum amount of time the robot will stay in the Play behavior.
+max_play_time = 600
 
 ##
-#   \class Interact
+#   \class Play
 #   \brief This class defines the state of the state machine corresponding to the robot interacting with the person.
 #
 #   This class inheritates from smach and it consist of a state in the state machine. The state
@@ -43,7 +46,7 @@ import robot_simulation_state_machines.image_processing as imp
 #   As part of the smach class, this class has the member function execute() providing the intended behavior.
 #   For more details about the content of this class, see the member function documentation.
 #
-class Interact(smach.State):
+class Play(smach.State):
     ##
     #   \brief __init__ is the constructor for the class.
     #
@@ -53,14 +56,14 @@ class Interact(smach.State):
     def __init__(self):
         smach.State.__init__(self,
                              outcomes=['find','tired','stop_play'],
-                             input_keys=['interact_fatigue_counter_in'],
-                             output_keys=['interact_fatigue_counter_out','room_to_find'])
+                             input_keys=['play_fatigue_counter_in', 'start_play_time_in'],
+                             output_keys=['play_fatigue_counter_out','play_room_to_find', 'start_play_time_out'])
 
         self.person_srv_client = rospy.ServiceProxy('/person_decision', PersonCommand)
-        self.time_in_play = 0.0
         self.person_pose = Pose()
         self.person_pose.position.x = -5
         self.person_pose.position.y = 8
+
     ##
     #   \brief execute This function performs the behavior for the state
     #   \param userdata Is the structure containing the data shared among states, it is used
@@ -81,22 +84,29 @@ class Interact(smach.State):
     #   outout key 'find' in order to switch state to Find and look for the requested room.
     #
     def execute(self, userdata):
-        min_time = 100
-        max_time = 200
-        self.time_in_play = random.randint(min_time, max_time)
-        init_time = rospy.Time.now().to_sec()
+        rospy.wait_for_service('/person_decision')
+        print("Time passed in Play behavior:", userdata.start_play_time_in, "[s]")
+        #   Initialize the time if the first time in play
+        if not userdata.start_play_time_in :
+            userdata.start_play_time_out = rospy.Time.now().to_sec()
+        #   Main loop
         while not rospy.is_shutdown():
-            #   Update the time in Play
-            time_elapsed = rospy.Time.now().to_sec() - init_time
-            if time_elapsed >= self.time_in_play:
+            #   Check the time in play
+            time_in_play = rospy.Time.now().to_sec() - userdata.start_play_time_in
+            if time_in_play >= max_play_time:
+                print("Robot is bored of playing")
+                #   Reset time in play as we stop
+                userdata.start_play_time_out = 0
+                want_play = False
+                self.person_srv_client(want_play)
                 return 'stop_play'
             #   Reach the person position
             print("Reaching person position")
             reachPosition(self.person_pose, wait=True)
             #   Ask for the person choice (which room to reach?)
-            rospy.wait_for_service('/person_decision')
             print("Waiting for a command from the person")
-            desired = self.person_srv_client()
+            want_play = True
+            desired = self.person_srv_client(want_play)
             print("Command received: go to the", desired.room)
             available_room = False
             #   Search for the desired room in the rooms list
@@ -107,17 +117,22 @@ class Interact(smach.State):
                     print("Going to room ", room[0] )
                     reachPosition(room[1].position,  wait=True)
                     #   Increase level of fatigue
-                    userdata.interact_fatigue_counter_out = userdata.interact_fatigue_counter_in + 1
+                    userdata.play_fatigue_counter_out = userdata.play_fatigue_counter_in + 1
                     #   Print a log to show the level of fatigue
-                    print('Level of fatigue : ', userdata.interact_fatigue_counter_in)
+                    print('Level of fatigue : ', userdata.play_fatigue_counter_in)
                     #   Check is the robot is tired
-                    if isTired(userdata.interact_fatigue_counter_in) :
+                    if isTired(userdata.play_fatigue_counter_in) :
                         #   Print a log to inform about the fact that the robot is tired
                         print('Robot is tired of moving...')
+                        #   Reset time in play as we stop
+                        userdata.start_play_time_out = 0
+                        want_play = False
+                        self.person_srv_client(want_play)
                         #   Return 'tired' to change the state
                         return 'tired'
             if not available_room :
                 #   If the flag is false then the room is not available yet and thus is the case of look for it
                 print("The room", desired.room, "is not available yet...")
-                userdata.room_to_find = desired.room
+                userdata.play_room_to_find = desired.room
+                print("Current time in play :", userdata.start_play_time_in)
                 return 'find'
