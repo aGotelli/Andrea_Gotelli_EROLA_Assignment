@@ -14,6 +14,9 @@
 #   \param [in] fatigue_threshold
 #   \param [in] maximum_dead_time
 #   \param [in] max_speed
+#   \param [in] max_explore_time
+#   \param [in] max_play_time
+#   \param [in] target_checking_rate
 #
 #   \details
 #
@@ -213,7 +216,7 @@ def main():
                                remapping={'rest_fatigue_counter_in':'fatigue_level',
                                           'rest_fatigue_counter_out':'fatigue_level'})
 
-        find_sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'restart_moving', 'restart_playing'],
+        find_sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'restart_playing'],
                               output_keys=['find_sub_sm_fatigue_level'],
                               input_keys=['find_sub_sm_fatigue_level', 'find_sub_sm_room_to_find'])
 
@@ -239,7 +242,6 @@ def main():
 
         smach.StateMachine.add('FIND', find_sub_sm,
                               transitions={'sleepy_robot':'REST',
-                                           'restart_moving':'NORMAL',
                                            'restart_playing':'PLAY'},
                               remapping={'find_sub_sm_fatigue_level':'fatigue_level',
                                          'find_sub_sm_fatigue_level':'fatigue_level',

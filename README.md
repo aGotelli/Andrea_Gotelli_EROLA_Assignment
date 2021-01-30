@@ -52,7 +52,7 @@ The person is an element which occasionally interacts with the robot. In fact, a
 ## <a name="SA-RSMD"></a>The Robot State Machine Diagram
 The following figure shows the state machine diagram for the robot, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
 
-![EROLA_first_assignment_AG](doc/images/state_machine_and_comp.png)
+![EROLA_first_assignment_AG](doc/images/state_machine_and_comp_v2.1.png)
 
 The figure illustrates the four behaviors for this application, beside some components and some other sub states. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
 In particular, all the states will be analyzed in the following.
@@ -183,7 +183,7 @@ This Move member function is designed to handle the creation of a new random tar
 This Move member function is a subscriber callback. It simply retrieve the information when the person has the intention to play the robot, setting the proper boolean variable to true.
 
 ###### <a name="CD-CR"></a>checkReachability
-This Move member function is timer callback. It is executed regularly with the rate setted with the corresponding [parameter](#MSG-P). Once executed, it compares the current euclidean distance. In the case the distance is decreased, it update the current distance and print a log. On the other hand, if the distance is increased, it assumes that the target is not reachable and calls the function [newTarget](#CD-newTarget) to compute a new one. This function may neglect possible targets but is guaranteed to avoid keeping a target outside the arena for too much time. Additionally, if the distance remains almost the same (the robot is not moving) then a new target is computed.
+This Move member function is timer callback. It is executed regularly with the rate setted with the corresponding [parameter](#MSG-P). Once executed, it compares the current euclidean distance. In the case the distance is decreased, it update the current distance and print a log. On the other hand, if the distance is increased, it assumes that the target is not reachable and calls the function [newTarget](#CD-newTarget) to compute a new one. This function may neglect possible targets but is guaranteed to avoid keeping a target outside the arena for too much time.
 
 ###### <a name="RB-OR"></a>odometryReceived
 This simply subscriber callback function is used to store the current value of the robot position, which is

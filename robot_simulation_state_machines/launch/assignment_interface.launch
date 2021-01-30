@@ -18,7 +18,7 @@
     <param name="/max_play_time" value="600" />
 
     <!-- Parameter to define the maximum time for which the robot will remain in the Explore state -->
-    <param name="/max_explore_time" value="20" />
+    <param name="/max_explore_time" value="200" />
 
     <!-- Parameter to define rate of checking the target reachability -->
     <param name="/target_checking_rate" value="40" />
