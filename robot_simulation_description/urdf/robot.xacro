@@ -85,15 +85,83 @@
             </geometry>
             <material name="blue"/>
         </visual>
-        <!-- caster front -->
+        <!-- caster front
         <collision name="caster_front_collision">
-            <origin rpy=" 0 0 0" xyz="0.35 0 -0.05"/>
+            <origin rpy=" 0 0 0" xyz="0.2 0 -0.05"/>
             <geometry>
                 <sphere radius="0.05"/>
             </geometry>
         </collision>
         <visual name="caster_front_visual">
             <origin rpy=" 0 0 0" xyz="0.2 0 -0.05"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </visual>-->
+    </link>
+
+    <!-- caster front  dummy-->
+    <link name="dummy_front_castor">
+            <xacro:default_inertial mass="0.001"/>
+        <collision name="link_dummy_front_castor_collision">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </collision>
+        <visual name="link_dummy_front_castor_visual">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <!-- caster front -->
+    <link name="link_caster_front_wheel">
+            <xacro:default_inertial mass="0.2"/>
+        <collision name="link_caster_front_wheel_collision">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </collision>
+        <visual name="link_caster_front_wheel_visual">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <!-- caster back  dummy-->
+    <link name="dummy_back_castor">
+            <xacro:default_inertial mass="0.001"/>
+        <collision name="link_dummy_back_castor_collision">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </collision>
+        <visual name="link_dummy_back_castor_visual">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <!-- caster back -->
+    <link name="link_caster_back_wheel">
+            <xacro:default_inertial mass="0.2"/>
+        <collision name="link_caster_back_wheel_collision">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.05"/>
+            </geometry>
+        </collision>
+        <visual name="link_caster_back_wheel_visual">
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
             <geometry>
                 <sphere radius="0.05"/>
             </geometry>
@@ -205,6 +273,42 @@
                                     THE JOINTS
     ########################################################################### -->
 
+    <joint name="joint_caster_back_dummy" type="continuous">
+        <origin rpy="0 0 0" xyz="-0.2 0 -0.05"/>
+        <child link="dummy_back_castor"/>
+        <parent link="link_chassis"/>
+        <axis rpy="0 0 0" xyz="1 0 0"/>
+        <limit effort="10000" velocity="1000"/>
+        <joint_properties damping="1.0" friction="1.0"/>
+    </joint>
+
+    <joint name="joint_caster_back_wheel" type="continuous">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <child link="link_caster_back_wheel"/>
+        <parent link="dummy_back_castor"/>
+        <axis rpy="0 0 0" xyz="0 1 0"/>
+        <limit effort="10000" velocity="1000"/>
+        <joint_properties damping="1.0" friction="1.0"/>
+    </joint>
+
+    <joint name="joint_caster_front_dummy" type="continuous">
+        <origin rpy="0 0 0" xyz="0.2 0 -0.05"/>
+        <child link="dummy_front_castor"/>
+        <parent link="link_chassis"/>
+        <axis rpy="0 0 0" xyz="1 0 0"/>
+        <limit effort="10000" velocity="1000"/>
+        <joint_properties damping="1.0" friction="1.0"/>
+    </joint>
+
+    <joint name="joint_caster_front_wheel" type="continuous">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <child link="link_caster_front_wheel"/>
+        <parent link="dummy_front_castor"/>
+        <axis rpy="0 0 0" xyz="0 1 0"/>
+        <limit effort="10000" velocity="1000"/>
+        <joint_properties damping="1.0" friction="1.0"/>
+    </joint>
+
 
     <joint name="joint_right_wheel" type="continuous">
         <origin rpy="0 0 0" xyz="-0.05 0.15 0"/>
@@ -214,7 +318,6 @@
         <limit effort="10000" velocity="1000"/>
         <joint_properties damping="1.0" friction="1.0"/>
     </joint>
-
 
     <joint name="joint_left_wheel" type="continuous">
         <origin rpy="0 0 0" xyz="-0.05 -0.15 0"/>
