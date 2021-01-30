@@ -87,9 +87,11 @@ from robot_simulation_state_machines.rest_state import Rest
 import robot_simulation_state_machines.robot_position as rp
 from robot_simulation_state_machines.robot_position import odometryReceived
 
-from robot_simulation_state_machines.find_state import Find
+import robot_simulation_state_machines.explore_state as ex
+from robot_simulation_state_machines.explore_state import Explore
 
-from robot_simulation_state_machines.interact_state import Interact
+import robot_simulation_state_machines.play_state as pl
+from robot_simulation_state_machines.play_state import Play
 
 
 
@@ -157,10 +159,8 @@ def main():
     #   Definition of the subscriber for the robot Odometry
     sub_odom = rospy.Subscriber('odom', Odometry, odometryReceived)
 
-
-    #############################################################
+    #   Definition of the service to retrive the available rooms
     sar_service = rospy.Service('sar_service', ShowAvailableRooms, sarCallback)
-    ############################################################à
 
     #   Retrieve the parameter about the world dimensions
     ms.width = rospy.get_param('/world_width', 20)
@@ -172,7 +172,10 @@ def main():
 
     #   Retrieve the parameters of the fatigue threshold and max dead time
     ms.fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
-    tbs.maximum_dead_time = rospy.get_param('/maximum_dead_time', 5)
+    tbs.maximum_dead_time = rospy.get_param('/maximum_dead_time', 2)
+
+    pl.max_play_time = rospy.get_param('/max_play_time', 600)
+    ex.max_explore_time = rospy.get_param('/max_explore_time', 300)
 
     #   Robot maximum linear velocity
     imp.max_speed = rospy.get_param('/max_speed', 0.5)
@@ -180,20 +183,21 @@ def main():
     print("fatigue_threshold" , ms.fatigue_threshold)
     print("maximum_dead_time" , tbs.maximum_dead_time)
 
-    ms.target_checking_rate = rospy.get_param('/time_before_change_target', 40.0)
+    ms.target_checking_rate = rospy.get_param('/target_checking_rate', 40.0)
 
     # Create a SMACH state machine
-    sm = smach.StateMachine(outcomes=['behavior_interface'])
-    sm.userdata.fatigue_level = 0
+    robot_behaviors = smach.StateMachine(outcomes=['behavior_interface'])
+    robot_behaviors.userdata.fatigue_level = 0
+    robot_behaviors.userdata.start_play_time = 0
 
     # Open the container
-    with sm:
+    with robot_behaviors:
         # Add states to the container
 
         #   Create the sub state machine for the normal behavior
         normal_sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'time_to_play'],
-                                    output_keys=['sub_sm_fatigue_level'],
-                                    input_keys=['sub_sm_fatigue_level'])
+                                    output_keys=['normal_ssm_fatigue_level'],
+                                    input_keys=['normal_ssm_fatigue_level'])
 
         with normal_sub_sm:
 
@@ -201,8 +205,8 @@ def main():
                                    transitions={'tired':'sleepy_robot',
                                                 'tracking':'TRACK_BALL',
                                                 'play':'time_to_play'},
-                                   remapping={'move_fatigue_counter_in':'sub_sm_fatigue_level',
-                                              'move_fatigue_counter_out':'sub_sm_fatigue_level',
+                                   remapping={'move_fatigue_counter_in':'normal_ssm_fatigue_level',
+                                              'move_fatigue_counter_out':'normal_ssm_fatigue_level',
                                               'move_room_to_find':'room_to_find'})
 
             smach.StateMachine.add('TRACK_BALL', TrackBall(),
@@ -210,8 +214,8 @@ def main():
                                                 'registered':'MOVE',
                                                 'room_founded':'MOVE',
                                                 'ball_lost':'MOVE'},
-                                   remapping={'track_ball_fatigue_counter_in':'sub_sm_fatigue_level',
-                                              'track_ball_fatigue_counter_out':'sub_sm_fatigue_level',
+                                   remapping={'track_ball_fatigue_counter_in':'normal_ssm_fatigue_level',
+                                              'track_ball_fatigue_counter_out':'normal_ssm_fatigue_level',
                                               'track_room_to_find':'room_to_find'})
 
 
@@ -219,55 +223,66 @@ def main():
         smach.StateMachine.add('NORMAL', normal_sub_sm,
                                transitions={'sleepy_robot':'REST',
                                             'time_to_play':'PLAY'},
-                               remapping={'sub_sm_fatigue_level':'fatigue_level',
-                                          'sub_sm_fatigue_level':'fatigue_level'})
+                               remapping={'normal_ssm_fatigue_level':'fatigue_level',
+                                          'normal_ssm_fatigue_level':'fatigue_level'})
 
         smach.StateMachine.add('REST', Rest(),
                                transitions={'rested':'NORMAL'},
                                remapping={'rest_fatigue_counter_in':'fatigue_level',
                                           'rest_fatigue_counter_out':'fatigue_level'})
 
-        play_sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'restart_moving'],
-                              output_keys=['play_sub_sm_fatigue_level'],
-                              input_keys=['play_sub_sm_fatigue_level'])
+        find_sub_sm = smach.StateMachine(outcomes=['sleepy_robot', 'restart_moving', 'restart_playing'],
+                              output_keys=['find_sub_sm_fatigue_level'],
+                              input_keys=['find_sub_sm_fatigue_level', 'find_sub_sm_room_to_find'])
 
-        with play_sub_sm :
+        find_sub_sm.userdata.explore_time = 0
+        with find_sub_sm :
 
-            smach.StateMachine.add('INTERACT', Interact(),
-                                   transitions={'find':'FIND',
-                                                'stop_play':'restart_moving',
-                                                'tired':'sleepy_robot'},
-                                   remapping={'interact_fatigue_counter_in':'play_sub_sm_fatigue_level',
-                                              'interact_fatigue_counter_out':'play_sub_sm_fatigue_level',
-                                              'interact_ball_to_find':'room_to_find'})
 
-            smach.StateMachine.add('FIND', Find(),
-                                   transitions={'track':'TRACK_BALL'})
+            smach.StateMachine.add('EXPLORE', Explore(),
+                                   transitions={'track':'TRACK_BALL',
+                                                'stop_exploring':'restart_playing'},
+                                   remapping={'start_explore_time_in': 'explore_time',
+                                              'start_explore_time_out':'explore_time'})
 
             smach.StateMachine.add('TRACK_BALL', TrackBall(),
                                    transitions={'tired':'sleepy_robot',
-                                                'registered':'FIND',
-                                                'room_founded':'INTERACT',
-                                                'ball_lost':'FIND'},
-                                   remapping={'track_ball_fatigue_counter_in':'play_sub_sm_fatigue_level',
-                                              'track_ball_fatigue_counter_out':'play_sub_sm_fatigue_level',
-                                              'track_room_to_find':'room_to_find'})
+                                                'registered':'EXPLORE',
+                                                'room_founded':'restart_playing',
+                                                'ball_lost':'EXPLORE'},
+                                   remapping={'track_ball_fatigue_counter_in':'find_sub_sm_fatigue_level',
+                                              'track_ball_fatigue_counter_out':'find_sub_sm_fatigue_level',
+                                              'start_explore_time_out':'explore_time',
+                                              'track_room_to_find':'find_sub_sm_room_to_find'})
 
-        smach.StateMachine.add('PLAY', play_sub_sm,
+        smach.StateMachine.add('FIND', find_sub_sm,
                               transitions={'sleepy_robot':'REST',
-                                           'restart_moving':'NORMAL'},
-                              remapping={'play_sub_sm_fatigue_level':'fatigue_level',
-                                         'play_sub_sm_fatigue_level':'fatigue_level'})
+                                           'restart_moving':'NORMAL',
+                                           'restart_playing':'PLAY'},
+                              remapping={'find_sub_sm_fatigue_level':'fatigue_level',
+                                         'find_sub_sm_fatigue_level':'fatigue_level',
+                                         'find_sub_sm_room_to_find':'room_to_find'})
+
+
+        smach.StateMachine.add('PLAY', Play(),
+                                           transitions={'find':'FIND',
+                                                        'stop_play':'NORMAL',
+                                                        'tired':'REST'},
+                                           remapping={'play_fatigue_counter_in':'fatigue_level',
+                                                      'play_fatigue_counter_out':'fatigue_level',
+                                                      'start_play_time_in': 'start_play_time',
+                                                      'start_play_time_out':'start_play_time',
+                                                      'play_room_to_find':'room_to_find'})
 
 
 
 
     # Create and start the introspection server for visualization
-    sis = smach_ros.IntrospectionServer('robot_behavior_state_machine', sm, '/SM_ROOT')
+    sis = smach_ros.IntrospectionServer('robot_behavior_state_machine', robot_behaviors, '/SM_ROOT')
     sis.start()
 
     # Execute the state machine
-    outcome = sm.execute()
+    outcome = robot_behaviors.execute()
 
     # Wait for ctrl-c to stop the application
     rospy.spin()
