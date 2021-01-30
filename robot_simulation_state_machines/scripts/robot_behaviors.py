@@ -94,25 +94,6 @@ import robot_simulation_state_machines.play_state as pl
 from robot_simulation_state_machines.play_state import Play
 
 
-
-
-
-
-"""
-    Problems:
-        -> Ci sta un po a assumere positione raggiunta //
-        -> Non posso usare odometry//
-        -> A volte si pianta contro i muri//
-
-
-    Questions:
-
-        -> If detects a ball and then another one?
-        -> Ok the import ..... as and from ..... import
-        -> Do i need to document the balls?
-
-"""
-
 ##
 #   \brief __main__ intializes the ros node and the smach state machine
 #
@@ -174,6 +155,7 @@ def main():
     ms.fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
     tbs.maximum_dead_time = rospy.get_param('/maximum_dead_time', 2)
 
+    #   Retrieve max time in Play and Explore
     pl.max_play_time = rospy.get_param('/max_play_time', 600)
     ex.max_explore_time = rospy.get_param('/max_explore_time', 300)
 
