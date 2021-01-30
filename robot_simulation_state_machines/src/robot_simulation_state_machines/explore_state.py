@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
 # This Python file uses the following encoding: utf-8
 ## @package robot_simulation_state_machines
 #   \file explore_state.py
-#   \brief This file contains the declaration of the class describing the Find state.
+#   \brief This file contains the declaration of the class describing the Explore state.
 #   \author Andrea Gotelli
 #   \version 0.2
 #   \date 27/01/2021
@@ -40,7 +41,7 @@ max_explore_time = 300
 class Explore(smach.State):
     ##
     #   \brief The __init__ constructor initializes the state outcome and input output keys as well as a declaration
-    #   of an internal subscriber to the action Service provided in Explore Lite.
+    #   of an internal subscriber to the action Service provided in explore_lite.
     def __init__(self):
             smach.State.__init__(self,
                                  outcomes=['track', 'stop_exploring'],
@@ -48,21 +49,29 @@ class Explore(smach.State):
                                  output_keys=['start_explore_time_out'])
             self.explore_client = actionlib.SimpleActionClient('explore_action_server',ExploreAction)
     ##
-    #   \brief  The member function executing the state behavior
+    #   \brief execute is the member function executing the state behavior
     #   \param userdata is the structure containing the data shared among states.
     #   \return a string consisting of the state outcome
     #
     #   This function is executed with the only goal of calling a action service. This action service is provided by the
-    #   explore_lite package and makes the robot moving randomly in the non explored edges of the generated map. This state
-    #   has only one possible outcome that is 'track' which is fired when a ball is detected. This outcome makes the robot
-    #   to track the ball with the TrackBall state.
+    #   explore_lite package and makes the robot moving in the non explored edges of the generated map. This state
+    #   has only two possible outcomes. The first one is 'track' which is fired when a ball is detected. This outcome makes the robot
+    #   to track the ball with the TrackBall state. The second one is 'stop_exploring', which is returned when the time
+    #   the robot passed in the Explore state is bigger then the maximum value.
+    #   In order to handle the time, the userdata has a spacific imput and output key. When entering the state for the first time
+    #   the of the start_explore_time_in will be 0. In this case, the userdata start_explore_time_out is initialized to the current time. When
+    #   leaving the state with the 'stop_exploring', the userdata start_explore_time_out is set to 0.
+    #   In this way, the next time entering this state the value will be re-initialized. In the second case, when
+    #   leaving the state with the 'track' transition, the value is left as it is, so the next time entering this state (after having
+    #   reached the ball) is it possible to account for the whole time passed in Explore.
     #
     def execute(self, userdata):
-        global ball_detected
-        print("Time passed in Find behavior:", userdata.start_explore_time_in, "[s]")
-        #   Check wheter the time is explore is to initialize
-        if not userdata.start_explore_time_in:
-            print("Reset time to current time")
+        if userdata.start_explore_time_in != 0 :
+            elapsed_time = rospy.Time.now().to_sec() - userdata.start_explore_time_in
+            print("Time passed in Explore state:", "%.3f"%elapsed_time, "[s]")
+        else :
+            print("Time passed in Explore state:", 0, "[s]")
+            #   Initialize the time if the first time in play
             userdata.start_explore_time_out = rospy.Time.now().to_sec()
         #   initialize creating an action service request
         self.explore_client.wait_for_server()

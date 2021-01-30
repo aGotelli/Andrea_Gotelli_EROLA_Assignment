@@ -119,6 +119,7 @@ class Move(smach.State):
     ##
     #   \brief commandReceived is the Move member function callback for the Subscriber to the person messages
     #   \param msg is the message containing the person willing.
+    #
     def commandReceived(self, msg):
         print("Received play request")
         self.time_to_play = True
@@ -160,7 +161,7 @@ class Move(smach.State):
     #   The procedure is to check the previously computed euclidean distance with the current one. If it has
     #   decreased, it means that the robot is moving forward the target. Otherwise, the robot is moving away from it.
     #   This last situation usually occours when the robot is following an alternative path trying to reach an unreachable target.
-    #   Thus this member function changes the boolean member targetSeemsReacheable accordingly.
+    #   Thus this member function changes the target using the memeber function newTarget().
     #
     def checkReachability(self, event):
         curr_dist = compEuclidDist(self.target, rp.robot_pose)
@@ -177,7 +178,7 @@ class Move(smach.State):
     #   \return a string consisting of the state outcome
     #
     #   This member function is responsible of simulating the Move behavior for the robot.
-    #   In the initialization it instantiate a new target for the robot, calling the member
+    #   In the initialization it instantiates a new target for the robot, calling the member
     #   function newTarget(). It then initializes a timer with the callback checkReachability(). This
     #   timer will then periodically call its callback and so mark the target as reacheable (or not)
     #   depending on the situation.
@@ -186,11 +187,9 @@ class Move(smach.State):
     #   the state with 'play' which triggers the Play behavior.
     #   If a ball has been detected, then the robot is stopped and the function returns 'tracking' to move to
     #   the TrackBall state.
-    #   It is then the time to check the target reachability; if the target is marked as not reachable, then a new
-    #   is generated and used.
     #   In the case non of the previously occurred, the function gets the state of the move_base service in order to
-    #   establish is the target has been reached. Once the target position has been reached, the fatigue counter is increased
-    #   and it is compared with the threshold using isTired. If the robot is tired the returning statement 'tired' brings it
+    #   establish if the target has been reached. Once the target position has been reached, the fatigue counter is increased
+    #   and it is compared with the threshold using isTired(). If the robot is tired the returning statement 'tired' brings it
     #   into the Rest behavior. Otherwise, a new target position is generated using newTarget().
     #   The timer for the reachability checking is shutdown each time this memeber function goes out of scope,
     #   in order to avoid having multiple shadow timers running in the background.
@@ -210,6 +209,7 @@ class Move(smach.State):
             #   First check if a command is received
             if self.time_to_play:
                 timer.shutdown()
+                self.time_to_play = False
                 return 'play'
             #   Check if a ball has been detected
             if imp.ball_detected :

@@ -75,7 +75,7 @@ radius_threshold = 80
 #   \brief  imageReceived   Is the subscriber callback for the images published by the camera.
 #   \param  ros_data Is the image received, which is of type sensor_msgs/CompressedImage.
 #
-#   This funtion first converts the image from the type received from the camera to an imgace which can be
+#   This funtion first converts the image from the type received from the camera to an image which can be
 #   processed by OpenCV. It then calls a separate function for the image processing: findBallIn(). It relies directly
 #   on the results of the image processing requiring the center and the radius of the enclosing circle as
 #   well as the image with the enclosing circle drawn. While the image is directly displayed, the center and
@@ -83,7 +83,7 @@ radius_threshold = 80
 #   which we also wanto to center in the image of the camera.
 #   In the computation of the linear velocity, it limits the maximum value in order to avoid dangerous soaring.
 #   The limitation must be stronger in the first instants of the of the motion and less invasive later.
-#   For this reason the twist is linearly incremented from the 0% to its 100% in the first 3 seconds of motion.
+#   For this reason the twist is linearly incremented from the 20% to its 100% in the first 3 seconds of motion.
 #   It also changes the value or the gobal boolean ball_detected to True.
 #   On the other hand,if the radius is equal or bigger than a given threshold, it assumes that the ball is
 #   close to the robot. This will be one of the two key points in order to establish whether the ball
@@ -180,13 +180,24 @@ class Ball:
         self.circle_color = circle_color_
         self.is_registered = False
 
-
-blue_ball    = Ball( lower_range_=(100, 50, 50), upper_range_=(130, 255, 255),   circle_color_=(255, 0, 0)    ) 
+##
+#   \brief blue_ball is the instance of the blue ball.
+blue_ball    = Ball( lower_range_=(100, 50, 50), upper_range_=(130, 255, 255),   circle_color_=(255, 0, 0)    )
+##
+#   \brief red_ball is the instance of the red ball.
 red_ball     = Ball( lower_range_=(0, 50, 50),   upper_range_=(5, 255, 255),     circle_color_=(0, 0, 255)    )
+##
+#   \brief green_ball is the instance of the green ball.
 green_ball   = Ball( lower_range_=(50, 50, 50),  upper_range_=(70, 255, 255),    circle_color_=(0, 255, 0)    )
+##
+#   \brief yellow_ball is the instance of the yellow ball.
 yellow_ball  = Ball( lower_range_=(25, 50, 50),  upper_range_=(35, 255, 255),    circle_color_=(0, 251, 253)  )
+##
+#   \brief magenta_ball is the instance of the magenta ball.
 magenta_ball = Ball( lower_range_=(125, 50, 50), upper_range_=(150, 255, 255),   circle_color_=(10, 135, 255) )
-black_ball   = Ball( lower_range_=(0, 0, 0),     upper_range_=(5,50,50),         circle_color_=(0, 0, 0)      )
+##
+#   \brief black_ball is the instance of the black ball.
+black_ball   = Ball( lower_range_=(0, 0, 0),     upper_range_=(10,50,50),         circle_color_=(0, 0, 0)     )
 
 ##
 #   \brief rooms_list defines a list of ball with the associated room name.
@@ -211,7 +222,8 @@ rooms_list = np.array([ ( 'Entrance',   blue_ball       ),
 #   It performs the passages of a classic image processing applying some lower and upper color ranges accordingly with the
 #   ball to find. If some contours have been found, only the bigger contour is kept and then the image processing continues
 #   computing the center and radius of the minimum enclosing circle. The radius is compared with a minimum threshold to
-#   establish if the founded contour could be a ball or not. In case of a positive response, the function returns: the center
+#   establish if the founded contour could be a ball or not. In this phase it takes into account that the radius
+#   slightly decreases when the ball is centered in the image. In case of a positive response, the function returns: the center
 #   and the radius of the minimum enclosing circle and the non processed image with the enclosing circle drawn on it.
 #   Finally, some instance checking is also performed. In the case the room corresponding to the current iteration is
 #   already registered, it not necessary to do any further processing and a recursive call is executed. Moreover, this
@@ -288,6 +300,9 @@ def registerRoom(robot_pose):
             room[1].position = robot_pose
             print("The ", room[0], " is now available.")
             return room[0]
+        elif room[1].in_cam_view :
+            return room[0]
+
 
 
 ##
