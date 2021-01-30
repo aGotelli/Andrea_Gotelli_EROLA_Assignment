@@ -114,13 +114,13 @@ class Move(smach.State):
             self.prev_dist = 0.0
             self.time_to_play = False
             #   Declare the subscriber to the person willing
-            self.sub = rospy.Subscriber("person_willing",String, self.commandReceived,  queue_size=1)
+            self.sub = rospy.Subscriber("PersonCommand",String, self.commandReceived,  queue_size=1)
 
     ##
     #   \brief commandReceived is the Move member function callback for the Subscriber to the person messages
     #   \param msg is the message containing the person willing.
     def commandReceived(self, msg):
-        print("Received command to play")
+        print("Received play request")
         self.time_to_play = True
 
     ##
@@ -164,15 +164,12 @@ class Move(smach.State):
     #
     def checkReachability(self, event):
         curr_dist = compEuclidDist(self.target, rp.robot_pose)
-        print("Prev dist: ", self.prev_dist)
-        print("Curr dist: ", curr_dist)
         if curr_dist >= self.prev_dist :
-            self.targetSeemsReacheable = False
             print("Target seems impossible to reach. Computing a new target")
             self.newTarget()
         else:
+            print("Current distance:", "%.3f"%curr_dist, "is smaller than the previus one:", "%.3f"%self.prev_dist)
             self.prev_dist = curr_dist
-            self.targetSeemsReacheable = True
 
     ##
     #   \brief execute is main member function of the class, containing the intended behavior
@@ -222,10 +219,6 @@ class Move(smach.State):
                 #   Return 'plying' to change the state
                 timer.shutdown()
                 return 'tracking'
-            #   Check target reachability
-            if not self.targetSeemsReacheable:
-                print("Target seems impossible to reach. Computing a new target")
-                self.newTarget()
             #   If none of the previous was true, then continue with the Move behavior
             #   Check if the target has been reached
             state = planning_client.get_state()

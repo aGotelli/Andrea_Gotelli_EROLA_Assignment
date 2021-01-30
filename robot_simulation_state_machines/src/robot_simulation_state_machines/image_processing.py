@@ -68,7 +68,7 @@ detection_time = 0.0
 ##
 #   \brief Is the value for the radius of the circle containing the ball to consider as a
 #           reference value to assume that the ball is "close" to the robot.
-radius_threshold = 100
+radius_threshold = 80
 
 
 ##
@@ -126,11 +126,15 @@ def imageReceived(ros_data):
         #   Increase linearly for 3 seconds to avoid soaring
         if ( time_from_first_detection <= 3.0 ):
             scale = time_from_first_detection/3
+        if scale < 0.2:
+            #   Ensure 20% of the computed speed
+            scale = 0.2
         #   Limit the robot maximum linear speed
         if abs(robot_twist.linear.x) > max_speed :
             robot_twist.linear.x = np.sign(robot_twist.linear.x)*max_speed
         #   Increase linearly
         robot_twist.linear.x = robot_twist.linear.x*scale
+        robot_twist.angular.z = robot_twist.angular.z*scale
         #   Finalize detection
         ball_detected = True
         #   Reset time of last detection
@@ -211,20 +215,26 @@ rooms_list = np.array([ ( 'Entrance',   blue_ball       ),
 #   and the radius of the minimum enclosing circle and the non processed image with the enclosing circle drawn on it.
 #   Finally, some instance checking is also performed. In the case the room corresponding to the current iteration is
 #   already registered, it not necessary to do any further processing and a recursive call is executed. Moreover, this
-#   function handles the situation where a ball disappears from the camera field of view or when the index has reached the
-#   end of the list of room array.
+#   function handles the situation where the index has reached the end of the list of room array: returning a False boolean
+#   which interromps the computations in imageReceived().
 #
 def findBallIn(hsv_image, image_np, index = 0):
     global ball_detected
     global ball_is_close
     global rooms_list
-
-    #   If ball is marker ad registerd we don't need to porcess it again
-    if rooms_list[index][1].is_registered :
+    #   First check if we are out of range
+    if (index >= len(rooms_list)):
         center = (0, 0)
         radius = 0.0
         succeeded = False
         return image_np, center, radius, succeeded
+    #   Define the ball as not in cam view by default
+    rooms_list[index][1].in_cam_view = False
+    #   If ball is marker ad registerd we don't need to process it again
+    if rooms_list[index][1].is_registered :
+        #   Continue with a recursive call
+        index = index + 1
+        return findBallIn(hsv_image, image_np, index)
     #   Obtain the RGB ranges for the ball associated with the current room
     lowerLimit = rooms_list[index][1].lower_range
     upperLimit = rooms_list[index][1].upper_range
@@ -245,28 +255,19 @@ def findBallIn(hsv_image, image_np, index = 0):
         ((x, y), radius) = cv2.minEnclosingCircle(c)
         M = cv2.moments(c)
         center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-        # only proceed if the radius meets a minimum size
-        if radius > 10:
+        #   Define the radius minimum size
+        threshold = 10
+        #   Check if the radius of the enclosing circle is bigger than the threshold.
+        #   Also consider that when centering the radius descreases
+        if radius >= threshold or (ball_detected and radius >= 0.80*threshold):
             #   Draw the circle and centroid on the frame, then update the list of tracked points
             cv2.circle(image_np, (int(x), int(y)), int(radius), circle_color, 2)
             cv2.circle(image_np, center, 5, (255, 255, 255), -1)
             succeeded = True
             return image_np, center, radius, succeeded
-    #   Else if the this room was in the camera field of view now it may not be the case
-    elif rooms_list[index][1].in_cam_view :
-        #   Set back the ball as not currently in the camera field of view
-        rooms_list[index][1].in_cam_view = False
-
-    #   Check if this was the last element of the list
-    if (index == len(rooms_list) - 1):
-        center = (0, 0)
-        radius = 0.0
-        succeeded = False
-        return image_np, center, radius, succeeded
-    else:
-        #   Continue with a recursive call
-        index = index + 1
-        return findBallIn(hsv_image, image_np, index)
+    #   Continue with a recursive call
+    index = index + 1
+    return findBallIn(hsv_image, image_np, index)
 
 ##
 #   \brief registerRoom marks a room as registered with the respective position in the map.
@@ -281,7 +282,7 @@ def registerRoom(robot_pose):
     global rooms_list
     #   Check which ball is in front of the robot
     for room in rooms_list:
-        if room[1].in_cam_view :
+        if room[1].in_cam_view and not room[1].is_registered:
             #   Perform saving
             room[1].is_registered = True
             room[1].position = robot_pose

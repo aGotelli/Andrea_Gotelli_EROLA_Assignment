@@ -36,7 +36,7 @@ import robot_simulation_state_machines.robot_position as rp
 
 ##
 #   \brief maximum_dead_time defines the maximum time to wait for seeing a ball before returning into the MOVE state.
-maximum_dead_time = 0
+maximum_dead_time = 3
 
 ##
 #   \brief robot_controller is the controller which directly controls the robot velocity
@@ -67,21 +67,39 @@ def laserReadingCallback(msg):
 
     #   Declare
     regions = {
-        'right':  min(min(msg.ranges[0:287]), 10),
-        'left':   min(min(msg.ranges[432:719]), 10)
+        'right':  min(min(msg.ranges[0:143]), 10),
+        'fright': min(min(msg.ranges[144:359]), 10),
+        'fleft':  min(min(msg.ranges[360:575]), 10),
+        'left':   min(min(msg.ranges[576:719]), 10),
     }
     #   Set as null twist preventively (may not be changed anymore)
     correction_twist = Twist()
     #   Proceed only if the robot is still "far" from the ball to avoid overconstrain the traking task
     if not imp.ball_is_close:
         #   If the wall is too close on the left, turn slightly on the right
-        if regions['left'] < 0.8 :
+        if regions['left'] < 0.6 :
             #   Turn slightly on the right
-            correction_twist.angular.z = - 0.001
+            correction_twist.angular.z = - 0.1
         #   If the wall is too close on the right, turn slightly on the left
-        elif regions['right'] < 0.8 :
+        elif regions['right'] < 0.6 :
             #   Turn slightly on the left
-            correction_twist.angular.z = 0.001
+            correction_twist.angular.z = 0.1
+        elif regions['fleft'] < 1.5 :
+            #   Slow down and turn on the right
+            correction_twist.angular.z = - 0.5
+            correction_twist.linear.x = - 0.5*imp.robot_twist.linear.x
+            if regions['fleft'] < 0.5 :
+                #   Reverse motion and turn on the right
+                correction_twist.angular.z = - 1
+                correction_twist.linear.x = - 0.8*imp.robot_twist.linear.x
+        elif regions['fright'] < 1.5 :
+            #   Slow down and turn on the left
+            correction_twist.angular.z = 0.5
+            correction_twist.linear.x = - 0.5*imp.robot_twist.linear.x
+            if regions['fleft'] < 0.5 :
+                #   Reverse motion and turn on the left
+                correction_twist.angular.z = 1
+                correction_twist.linear.x = - 0.8*imp.robot_twist.linear.x
 
 
 
@@ -108,7 +126,7 @@ class TrackBall(smach.State):
             smach.State.__init__(self,
                                  outcomes=['tired', 'registered', 'room_founded','ball_lost'],
                                  input_keys=['track_ball_fatigue_counter_in','track_room_to_find'],
-                                 output_keys=['track_ball_fatigue_counter_out'])
+                                 output_keys=['track_ball_fatigue_counter_out','start_explore_time_out'])
 
     ##
     #   \brief execute This function performs the behavior for the state
@@ -153,17 +171,14 @@ class TrackBall(smach.State):
                 return 'ball_lost'
             #   Combine the two twist in order to reach the ball while avoiding the walls
             resulting_twist = Twist()
-            resulting_twist = imp.robot_twist
-            resulting_twist.angular.z = resulting_twist.angular.z + correction_twist.angular.z
+            resulting_twist.linear.x = imp.robot_twist.linear.x + correction_twist.linear.x
+            resulting_twist.angular.z = imp.robot_twist.angular.z + correction_twist.angular.z
             robot_controller.publish(resulting_twist)
             #   Proceed only if close to the ball
             if imp.ball_is_close:
                 # Evaluate if the robot is still
                 vels = math.sqrt( (imp.robot_twist.linear.x*imp.robot_twist.linear.x) + (imp.robot_twist.angular.z*imp.robot_twist.angular.z) )
                 if vels <= 0.05:
-                    #   Set to false for avoid bug
-                    imp.ball_is_close = False
-                    imp.ball_detected = False
                     #   Make sure the robot stays still
                     null_twist = Twist()
                     robot_controller.publish(null_twist)
@@ -182,6 +197,9 @@ class TrackBall(smach.State):
                     room_to_find = userdata.track_room_to_find
                     #   Check wheter there is a room to look for
                     if not room_to_find :
+                        #   Set to false for avoid bug
+                        imp.ball_is_close = False
+                        imp.ball_detected = False
                         #   Return the corresponding change of state
                         return 'registered'
                     else :
@@ -189,8 +207,16 @@ class TrackBall(smach.State):
                         founded_room = imp.registerRoom(rp.robot_pose)
                         #   Then compare it with the room to find, and act as consequence
                         if founded_room == room_to_find:
+                            #   Set to false for avoid bug
+                            imp.ball_is_close = False
+                            imp.ball_detected = False
                             print("The ", founded_room, " is reached")
+                            #   Flag the explore time to reset the next time
+                            userdata.start_explore_time_out = 0
                             return 'room_founded'
                         else:
+                            #   Set to false for avoid bug
+                            imp.ball_is_close = False
+                            imp.ball_detected = False
                             print("Found ", founded_room, " but the goal is to find ", room_to_find)
                             return 'registered'
