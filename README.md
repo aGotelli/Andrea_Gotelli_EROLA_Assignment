@@ -88,7 +88,11 @@ This behavior simply consist in a call to the described service and a loop of in
 
 ###### <a name="RSMD-FB-TB"></a>The Track Ball state
 This state has the same features as the ones previously described in [Tack Ball](#RSMD-NB-TB). In fact, the two states are described by the same class (see [Class Diagram](#SA-CLAD)).
-The robot has to behave in the same way either if it finds a ball in the [Normal](#RSMD-NORMAL) behavior or in this behavior. However, in this case the robot responds differently whether the ball has has been reached is associated to the room it was looking for or not. In the first case, where the robot has reached the room indicated by the person, it then increases its level of fatigue and goes back to the person position, as it has fulfilled the person command. In other words, in this scenario the states switches to [Play](#RSMD-PLAY) with the transition 'room_founded'. On the other hand, if the room that has been found is not the one the person requested, the robot, after having registered it, returns to explore the map in the [Explore](#RSMD-FB-EX) state. Similarly if, for some reasons, the robot stops detecting the ball for a while, it returns in the  [Explore](#RSMD-FB-EX) state.
+The robot has to behave in the same way either if it finds a ball in the [Normal](#RSMD-NORMAL) behavior or in this behavior. However, in this case the robot responds differently whether the ball has has been reached is associated to the room it was looking for or not. In the first case, where the robot has reached the room indicated by the person, it then increases its level of fatigue and goes back to the person position, as it has fulfilled the person command. In other words, in this scenario the states switches to [Play](#RSMD-PLAY) with the transition 'room_founded'. On the other hand, if the room that has been found is not the one the person requested, the robot, after having registered it, returns to explore the map in the [Explore](#RSMD-FB-EX) state.
+As the walls are an obstruction for the ball detection, a ball might be not detectable as the robot changes its orientation to track it.
+To overcome this problem, if the ball stops being detected, the robot moves slightly forward. This motion is forbidden if a wall is
+detected close and in front of the robot.
+Similarly if, for some reasons, the robot stops detecting the ball for a while, it returns in the  [Explore](#RSMD-FB-EX) state.
 
 
 
@@ -122,7 +126,7 @@ This class has only the execute function which is carefully described when the s
 ## <a name="SA-CD"></a>The Component Diagram
 The following figure shows the components and their relevant parts of this application. Additionally, it also includes a class diagram inside the state machine components. In fact, it is important to understand that all the behaviors are simulated through the execution of the member function execute() common to all classes.
 
-![EROLA_first_assignment_AG](doc/images/component_diagram_v2.1.png)
+![EROLA_first_assignment_AG](doc/images/component_diagram_v2.2.png)
 
 The figure shows all the component with their interfaces. In the following, a brief description is given for all of them.
 
@@ -186,7 +190,7 @@ This simply subscriber callback function is used to store the current value of t
 required when we it registers a the position associated to a room and to check whether the target is reachable or not.
 
 ###### <a name="RB-LRCB"></a>laserReadingCallback
-This subscriber callback is another key point of the application. This function handles the safety of the robot keeping it away from the walls. To this aim, it relies on the laser scan and specifically on the measured distance from the walls. If refers to the distance from the robot to the walls on its sides. If a wall is too close to one side the function computes a twist which makes the robot rotate sightly on the opposite direction, thus keeping it from colliding to the wall. The computed twist is used in the [Track Ball](#RSMD-NB-TB) state together with the one computed in [imageReceived](#RB-IR).
+This subscriber callback is another key point of the application. This function handles the safety of the robot keeping it away from the walls. To this aim, it relies on the laser scan and specifically on the measured distance from the walls. If refers to the distance from the robot to the walls on its sides. If a wall is too close to one side the function computes a twist which makes the robot rotate sightly on the opposite direction, thus keeping it from colliding to the wall. If the robot come close to a wall if front of it, the value of the boolean robot_in_danger is set to true. The computed twist is used in the [Track Ball](#RSMD-NB-TB) state together with the one computed in [imageReceived](#RB-IR), while the value of robot_in_danger allows (or not) the robot to move slightly forward if the ball is lost.
 
 
 
