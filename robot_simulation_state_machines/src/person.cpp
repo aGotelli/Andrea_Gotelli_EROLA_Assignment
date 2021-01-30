@@ -45,15 +45,19 @@ static std::vector<std::string> rooms {
   "Bedroom"
 };
 
+
 /*!
  * \brief waitingPeriod returns a ros::Duration element of a random number of seconds
  * \param min defines the lower bound of the range [default 300 s]
  * \param max defines the upper bound of the range [default 600 s]
  * \return the constant ros::Duration
  */
-const inline ros::Duration waitingPeriod(const int min=300, const int max=600)
+const inline ros::Duration waitingPeriod(const int min=600, const int max=900, const bool verbose=true)
 {
-  return ros::Duration( rand()%(max-min + 1) + min );
+  const int time_to_next_call = rand()%(max-min + 1) + min;
+  if(verbose)
+    ROS_INFO_STREAM("Next call to play will arrive in : " << time_to_next_call << " [s]" );
+  return ros::Duration(time_to_next_call);
 }
 
 
@@ -68,14 +72,23 @@ static ros::Publisher command_to_play;
  * to play or interact with the robot. As this command should be followed by another one in the future, the rate of the
  * timer is reset at each call of the function.
  */
-void CallToPlay(ros::TimerEvent, ros::Timer* timer)
+void CallToPlay(ros::TimerEvent)
 {
   //  Create an publish an empty message
   command_to_play.publish( std_msgs::String() );
-  //  Reset the timer
-  timer->stop();
-  timer->setPeriod( waitingPeriod() );
-  timer->start();
+}
+
+/// \brief auto_caller is a ros::Timer which executes the function calling the robot at a given frequency
+static ros::Timer auto_caller;
+
+/*!
+ * \brief resetTimer stops the timer and reinitialise its rate.
+ */
+void resetTimer()
+{
+  auto_caller.stop();
+  auto_caller.setPeriod( waitingPeriod() );
+  auto_caller.start();
 }
 
 /*!
@@ -87,13 +100,20 @@ void CallToPlay(ros::TimerEvent, ros::Timer* timer)
  * randomly mexes the element in the vector rooms using std::random_shuffle. Then it picks
  * the first element of the randomly sorted vector.
  */
-bool roomSelection(robot_simulation_messages::PersonCommand::Request  &,
-         robot_simulation_messages::PersonCommand::Response &res)
+bool roomSelection(robot_simulation_messages::PersonCommand::Request& request,
+         robot_simulation_messages::PersonCommand::Response& res)
 {
-  std::random_shuffle(rooms.begin(), rooms.end());
-  res.room = rooms.front();
-  auto decision_time = waitingPeriod(2,4);
-  decision_time.sleep();
+  //  Check if the robot has sent the command of playing
+  if( request.want_play) {
+    std::random_shuffle(rooms.begin(), rooms.end());
+    res.room = rooms.front();
+    auto decision_time = waitingPeriod(2,4, false);
+    decision_time.sleep();
+    return true;
+  }
+  //  Else the call was to tell the robot stops playing
+  //  Reset timer for the next call to play
+  resetTimer();
   return true;
 }
 
@@ -120,9 +140,11 @@ int main(int argc, char **argv)
   //  Initialize publisher
   command_to_play = nh.advertise<std_msgs::String>("PersonCommand", 1);
 
-  //  Declare and initialize the timer
-  ros::Timer auto_caller;
-  auto_caller = nh.createTimer( waitingPeriod(), boost::bind(CallToPlay, _1, &auto_caller), true );
+  ros::Duration waiting_time(5);
+  waiting_time.sleep();
+
+  //  Initialize the timer
+  auto_caller = nh.createTimer( waitingPeriod(5,5), CallToPlay, true );
 
   //  Main loop
   ros::spin();
