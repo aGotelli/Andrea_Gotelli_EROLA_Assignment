@@ -318,6 +318,9 @@ In this paragraph there is a list of the system limitation.
  * When the person commands the robot to reach a room, the blocking version of the function in [reach_goal](#CD-RG) is used. Thus, even if the time exceed the maximum amount of time, the robot will leave the Play behavior only after having reached the ball.
 
  * The system relies too much on the move_base package. This package sometimes takes a while to label a goal as accomplished, keeping the application waiting. Moreover, in the interface with explore_lite, it sometimes did not accept the target given by explore_lite, wasting the entiring exploration phase.
+
+ * It could happen that the map results explored while some ball are missing. In this case no plan is generated for the exploration and the Explore state will just keep the robot waiting in position for a while. In this scenario the only way for the robot to discover the balls is to reach the room while randomly moving.
+
 # <a name="S-PTI"></a>Possible Technical Improvements
 This project was developed with the aim of being possible to implement and improve new features and as well change the already exiting during the time. Some further work which could improve the performance of the application could be the following.
  * The procedure for avoiding the wall could be improved, making it more linear in slowing down and accelerating back the robot.
