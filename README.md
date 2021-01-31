@@ -52,7 +52,7 @@ The person is an element which occasionally interacts with the robot. After a ra
 ## <a name="SA-RSMD"></a>The Robot State Machine Diagram
 The following figure shows the state machine diagram for the robot, as well as some knowledge about which interfaces each state has, with respect to the rest of the architecture.
 
-![EROLA_first_assignment_AG](doc/images/state_machine_and_comp_v2.1.png)
+![EROLA_first_assignment_AG](doc/images/state_machine_and_comp_v2.2.png)
 
 The figure illustrates the four behaviors for this application, beside some components and some other sub states. The aim is to provide insight on the states and transitions as well as the interfaces that all the states have.
 In particular, all the states will be analyzed in the following.
@@ -77,7 +77,7 @@ In this state, the robot moves forward the detected ball using a combination of 
 ##### <a name="RSMD-REST"></a>The Rest behavior
 The Rest behavior simulates the pet like robot when going to sleep. Every movement that the robot performs, increases the level of fatigue in the robot. Once the level of fatigue is above a threshold, which can be set from the launch file, the Rest behavior is activated. The transition "tired" is the same in both [Normal](#RSMD-NB-MOVE), [Find](#RSMD-FIND) and [Play](#RSMD-PLAY) behavior. In this state, the robot goes to a predefined position and then it waits for some time. For reaching the position it calls the function in the [reach_goal](#CD-RG) specifying the execution of the script as a blocking function. This will make the robot to ignore any ball that could appear in the camera field of view. When the time is over, i.e. the robot is rested, the level of fatigue is set to zero and the state changes into the [Normal](#RSMD-NORMAL) behavior with the transition "rested".
 
-##### <a name="SMD-FIND"></a>The Find behavior
+##### <a name="RSMD-FIND"></a>The Find behavior
 When the robot is in the Find behavior, it enters in another state machine that has the two states listed below:
 * [Explore](#RSMD-FB-EX)
 * [Track Ball](#RSMD-FB-TB)
@@ -93,7 +93,9 @@ As the walls are an obstruction for the ball detection, a ball might be not dete
 To overcome this problem, if the ball stops being detected, the robot moves slightly forward. This motion can be forbidden by a boolean flag reporting that the robot is dangerously close to a wall in front of itself.
 Similarly if, for some reasons, the robot stops detecting the ball for a while, it returns in the  [Explore](#RSMD-FB-EX) state.
 
-
+###### <a name="RSMD-PLAY"></a>The Play behavior
+In this behavior the robot interacts with the person. It first goes to the person position and then it waits for the person commands. It then compares the chosen room with the available ones. If the room is available it goes there while, if the room is not available, it goes in the [Find](#RSMD-FIND) behavior. Once reached the room, it check for the robot tiredness and eventually goes in the [Rest](#RSMD-REST) behavior.
+If it is not yet tired, it comes back to the person position. The robot iterates in this behavior until the maximum time is reached or it decides to stop. In fact, the more it stays in this behavior, the more it is likely to choose to stop.
 
 ## <a name="SA-CLAD"></a>The Class Diagram
 The following images reports the classes that are used to define the state machines. Each class has the specification of its members (if any) and member functions. Moreover, each class is represented inside a box which name refers to the actual file containing the class declaration.

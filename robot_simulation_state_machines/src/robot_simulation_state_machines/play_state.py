@@ -75,12 +75,17 @@ class Play(smach.State):
     #   checked is that if the time elapsed since the robot is in this state is bigger than a given threshold. In this case,
     #   the return key 'stop_play' brings the robot back in the Normal behavior. If it is not the case, then it orders the robot to reach the person
     #   postion, which is stored as a memeber of the class, with a call of the blocking version of reachPosition().
+    #   The last occurence which makes the state to change is the possibility that the robot decides to stop play.
+    #   This probability is computed comparing the percentage of the time passed in this state with the maximum time
+    #   (augmented by a fixed gain). In this way, the more the robot stays in this behavior the more is likely that he will
+    #   decide to stop playing. If the maximum time is not augmented by the gain, it will be impossible to reach the maximum dead time
+    #   and thus one outcome will be unused.
     #   Once the robot has reached the person position, it then calls the service for obtaining an order from the person: the
     #   specification of a room to reach. Once this information is obtained then it looks if the corresponding room is the list
     #   has been registered, in which case it will command the robot to reach the associated position (again with a call of the
     #   blocking version of reachPosition()). The choice of using the blocking version is for prevent the robot of being "distracted"
     #   by the detection of other balls in the environment. On the other hand, if the room is not yet registed, it returns the
-    #   outout key 'find' in order to switch state to Find and look for the requested room. IN any case, when leaving this
+    #   outout key 'find' in order to switch state to Find and look for the requested room. In any case, when leaving this
     #   state, a call of the service 'person_decision' with a negative value for want_to_play will inform the
     #   person node of this decision, resetting the timer for the next call to play.
     #
@@ -135,6 +140,13 @@ class Play(smach.State):
                         self.person_srv_client(want_play)
                         #   Return 'tired' to change the state
                         return 'tired'
+                    #   Randomly evaluates if leaving the state
+                    augmented_max_time = 1.8*max_play_time
+                    percentage = 100*time_in_play/augmented_max_time
+                    check = random.randint(0,100)
+                    if check < percentage :
+                        print("Robot has decided to stop playing!")
+                        return 'stop_play'
             if not available_room :
                 #   If the flag is false then the room is not available yet and thus is the case of look for it
                 print("The room", desired.room, "is not available yet...")
