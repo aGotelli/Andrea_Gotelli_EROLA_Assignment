@@ -226,7 +226,7 @@ In this project there are some parameters which can be set from the launch file,
 
 The following image shows the overall structure for the project and where to find a specific file.
 
-![EROLA_first_assignment_AG](doc/images/tree.png)
+![EROLA_first_assignment_AG](doc/images/tree2.png)
 
 The doc folder contains the doxygen file that has to be executed to generate the documentation, as explained [here](#S-IRP).
 
