@@ -164,6 +164,7 @@ def main():
 
     #   Robot maximum linear velocity
     imp.max_speed = rospy.get_param('/max_speed', 0.5)
+    imp.start_time = rospy.Time.now().to_sec()
 
     print("fatigue_threshold" , ms.fatigue_threshold)
     print("maximum_dead_time" , tbs.maximum_dead_time)
