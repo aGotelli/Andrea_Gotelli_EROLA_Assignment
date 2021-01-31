@@ -304,13 +304,16 @@ def registerRoom(robot_pose):
             return room[0]
 
 
+start_time = 0
 
 ##
 #   \brief  sarCallback is a service callback which returns the list of registered rooms.
 def sarCallback(req):
+    time_elapsed = rospy.Time.now().to_sec() - start_time
+    time_elapsed = int(time_elapsed/60)
     global rooms_list
     av_room_list =[]
-    av_room_list.append("Available room(s): ")
+    av_room_list.append("After " + str(time_elapsed) +" min the available room(s): ")
     for room in rooms_list :
         if room[1].is_registered:
             av_room_list.append(room[0])
