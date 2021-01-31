@@ -305,9 +305,13 @@ In this paragraph there is a list of the system limitation.
 
  * The system cannot account the distance covered by the robot but only the accomplishment of a motion. Meaning that, even if the robot covers a long distance, for example while randomly moving, if the motion is interrupted by the detection of a ball, then it changes the state but it will increase the fatigue counter only after having reached the ball. In other words, all the long motion that was doing before is disregarded.
 
-* The distance at which the robot starts tracking the ball is limited. This is due to stability considerations: for a too small radius there is an high probability that the robot loses the ball (when centering in the camera frame, the radius reduces).
+ * The distance at which the robot starts tracking the ball is limited. This is due to stability considerations: for a too small radius there is an high probability that the robot loses the ball (when centering in the camera frame, the radius reduces).
 
-* The system relies on move_base for the robot movements. Moreover, due to the chosen architecture, it is not possible to use the robot odometry in order to establish whether the target has been reached. The drawback is that the move_base package sometime takes a lot of time to label the target as reached, keeping the robot waiting in position.  
+ * The system relies on move_base for the robot movements. Moreover, due to the chosen architecture, it is not possible to use the robot odometry in order to establish whether the target has been reached. The drawback is that the move_base package sometime takes a lot of time to label the target as reached, keeping the robot waiting in position.
+
+ * The front and castor wheels are not represented in Rviz since there is no transform for them. For a more accurate simulation, a proper control is missing.
+
+ * The detection of the black ball is somehow compromized by the color range. A fine tuning would improve the performances.
 
 # <a name="S-PTI"></a>Possible Technical Improvements
 This project was developed with the aim of being possible to implement and improve new features and as well change the already exiting during the time. Some further work which could improve the performance of the application could be the following.
@@ -316,7 +320,7 @@ This project was developed with the aim of being possible to implement and impro
  * The robot max speed could be considered in the joint limit velocity and effort, leaving it out of the code, resulting in a less robot dependent code.
  * Add an error handling section in order to prevent the user to input inconsistent data.
  * Add the smach_viewer interface once solved the problem of integration or when the package itself is ported in python3.
-
+ * Add a proper wheeling for the robot, implementing the castor wheel properly
 
 # <a name="S-AC"></a>Authors and Contacts
 This project was relized by Andrea Gotelli.
