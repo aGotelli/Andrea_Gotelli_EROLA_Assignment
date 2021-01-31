@@ -65,6 +65,7 @@ class Explore(smach.State):
     #   In this way, the next time entering this state the value will be re-initialized. In the second case, when
     #   leaving the state with the 'track' transition, the value is left as it is, so the next time entering this state (after having
     #   reached the ball) is it possible to account for the whole time passed in Explore.
+    #   Finally, if the map is all explored, it leave the state with the 'stop_exploring' transition.
     #
     def execute(self, userdata):
         if userdata.start_explore_time_in != 0 :
@@ -83,6 +84,13 @@ class Explore(smach.State):
         self.explore_client.send_goal(goal)
         #   Loop until stopping criteria is reached
         while not rospy.is_shutdown():
+            #   Check if the map il totally explored
+            state = self.explore_client.get_state()
+            if state == 4 :
+                print("The map is explored!")
+                self.explore_client.cancel_all_goals()
+                rospy.sleep(0.5)
+                return 'stop_exploring'
             if time_in_explore >= max_explore_time:
                 #   Reset time in play as we stop
                 userdata.start_explore_time_out = 0

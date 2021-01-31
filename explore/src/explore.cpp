@@ -209,6 +209,7 @@ void Explore::makePlan()
 
   if (frontiers.empty()) {
     stop();
+    as_.setAborted();
     return;
   }
 

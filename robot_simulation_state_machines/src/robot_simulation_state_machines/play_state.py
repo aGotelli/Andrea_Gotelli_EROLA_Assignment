@@ -149,6 +149,8 @@ class Play(smach.State):
                     check = random.randint(0,100)
                     if check < percentage :
                         print("Robot has decided to stop playing!")
+                        want_play = False
+                        person_srv_client(want_play)
                         return 'stop_play'
             if not available_room :
                 #   If the flag is false then the room is not available yet and thus is the case of look for it
