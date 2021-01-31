@@ -53,7 +53,7 @@ static std::vector<std::string> rooms {
  * \param max defines the upper bound of the range [default 600 s]
  * \return the constant ros::Duration
  */
-const inline ros::Duration waitingPeriod(const int min=600, const int max=900, const bool verbose=true)
+const inline ros::Duration waitingPeriod(const int min=300, const int max=400, const bool verbose=true)
 {
   const int time_to_next_call = rand()%(max-min + 1) + min;
   if(verbose)
@@ -144,11 +144,11 @@ int main(int argc, char **argv)
   command_to_play = nh.advertise<std_msgs::String>("PersonCommand", 1);
 
   //  Wait initialization to stop before starting
-  ros::Duration waiting_time(5);
+  ros::Duration waiting_time(1);
   waiting_time.sleep();
 
   //  Initialize the timer (first call not too far in the future)
-  auto_caller = nh.createTimer( waitingPeriod(200,300), CallToPlay, true );
+  auto_caller = nh.createTimer( waitingPeriod(120,180), CallToPlay, true );
 
   //  Main loop
   ros::spin();
