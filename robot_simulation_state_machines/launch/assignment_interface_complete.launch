@@ -9,7 +9,7 @@
     <param name="/sleep_y_coord" value="5" />
 
     <!-- Parameter to define the robot maximul level of efforts before going to sleep -->
-    <param name="/fatigue_threshold" value="5" />
+    <param name="/fatigue_threshold" value="6" />
 
     <!-- Parameter to define the robot will wait in the Track Ball state when stopping detecting the ball -->
     <param name="/maximum_dead_time" value="5" />
@@ -18,7 +18,7 @@
     <param name="/max_play_time" value="600" />
 
     <!-- Parameter to define the maximum time for which the robot will remain in the Explore state -->
-    <param name="/max_explore_time" value="200" />
+    <param name="/max_explore_time" value="180" />
 
     <!-- Parameter to define rate of checking the target reachability -->
     <param name="/target_checking_rate" value="40" />

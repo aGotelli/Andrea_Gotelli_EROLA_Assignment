@@ -5,6 +5,8 @@
 
 
     <node pkg="robot_simulation_state_machines" type="robot_simulation_state_machines_person" name="person" output="screen"/>
+
+
 </launch>
 
 
