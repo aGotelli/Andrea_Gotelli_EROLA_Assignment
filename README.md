@@ -41,7 +41,7 @@ This simple activity diagram is included in this document in order to give a gen
 
 ![EROLA_first_assignment_AG](doc/images/activity_diagram_v2.2.png)
 
-As can be seen in the image above, there are two main elements in this simulation: the robot and the person.
+As it can be seen in the image above, there are two main elements in this simulation: the robot and the person.
 
 ###### The Robot
 The robot is a pet like robot which starts to move randomly in the environment until its tired. When tired, it goes to sleep. If, while moving randomly, it detects a ball, it tries to reach it and, once reached, it registers the room that is associated with that ball. If it is not yet tired, it begins to move again in the environment while, if the robot gets tired, it goes to sleep. If the person wants to play with the robot it reaches the person position. Once arrived there, it waits for the person to chose a room. If the chosen room is known by the robot (it has been already found and thus registered with an associated position), then the robot reaches that position, waits for some time and then goes back to the person for another command. On the other hand, if the room is not yet discovered, then the robot starts wondering in the unexplored part of the map. When it finds a ball it proceed in reach it and register the associated room. If it was the room the person gave to the robot, then it goes back to the person. Meanwhile, if it is another room, it continues to move in the environment. After some time moving without having found the room of interest, it goes back to the person. Each time the robot reaches a ball it may be tired, in which case it goes directly to sleep. After some time in interacting with the person, it may decide to stop and begin to randomly move in the environment.
@@ -310,7 +310,7 @@ In this paragraph there is a list of the system limitation.
 * The system relies on move_base for the robot movements. Moreover, due to the chosen architecture, it is not possible to use the robot odometry in order to establish whether the target has been reached. The drawback is that the move_base package sometime takes a lot of time to label the target as reached, keeping the robot waiting in position.  
 
 # <a name="S-PTI"></a>Possible Technical Improvements
-This project was developed with the aim of being possible to implement, improve and change features during the time. Some further work which could improve the performance of the application could be the following.
+This project was developed with the aim of being possible to implement and improve new features and as well change the already exiting during the time. Some further work which could improve the performance of the application could be the following.
  * The procedure for avoiding the wall could be improved, making it more linear in slowing down and accelerating back the robot.
  * The image processing could be improved to be more perming and stable with the balls: meaning that while centering the radius should not decrease and thus the detection remain unaffected.
  * The robot max speed could be considered in the joint limit velocity and effort, leaving it out of the code, resulting in a less robot dependent code.
