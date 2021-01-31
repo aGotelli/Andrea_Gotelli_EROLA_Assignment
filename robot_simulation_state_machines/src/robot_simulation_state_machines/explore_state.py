@@ -87,6 +87,7 @@ class Explore(smach.State):
                 #   Reset time in play as we stop
                 userdata.start_explore_time_out = 0
                 self.explore_client.cancel_all_goals()
+                rospy.sleep(0.5)
                 return 'stop_exploring'
             if imp.ball_detected:
                 print("A new ball has been detected!")
