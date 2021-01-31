@@ -224,7 +224,7 @@ In this project there are some parameters which can be set from the launch file,
 
 The following image shows the overall structure for the project and where to find a specific file.
 
-![EROLA_first_assignment_AG](doc/images/directory_topology.png)
+![EROLA_first_assignment_AG](doc/images/tree.png)
 
 The doc folder contains the doxygen file that has to be executed to generate the documentation, as explained [here](#S-IRP).
 
@@ -313,6 +313,8 @@ In this paragraph there is a list of the system limitation.
 
  * The detection of the black ball is somehow compromized by the color range. A fine tuning would improve the performances.
 
+ * When the person commands the robot to reach a room, the blocking version of the function in [reach_goal](#CD-RG) is used. Thus, even if the time exceed the maximum amount of time, the robot will leave the Play behavior only after having reached the ball.
+
 # <a name="S-PTI"></a>Possible Technical Improvements
 This project was developed with the aim of being possible to implement and improve new features and as well change the already exiting during the time. Some further work which could improve the performance of the application could be the following.
  * The procedure for avoiding the wall could be improved, making it more linear in slowing down and accelerating back the robot.
@@ -321,6 +323,7 @@ This project was developed with the aim of being possible to implement and impro
  * Add an error handling section in order to prevent the user to input inconsistent data.
  * Add the smach_viewer interface once solved the problem of integration or when the package itself is ported in python3.
  * Add a proper wheeling for the robot, implementing the castor wheel properly
+ * Add some randmoness also in the amount of time the robot stays in the Play behavior and Explore state.
 
 # <a name="S-AC"></a>Authors and Contacts
 This project was relized by Andrea Gotelli.
