@@ -87,30 +87,22 @@ void Explore::executeCB(const explore_lite::ExploreGoalConstPtr &goal)
         private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
   }
 
+  if(move_base_client_.getState().state_ == 2) {
+    move_base_client_.cancelGoal();
+  }
 
-  move_base_client_.waitForServer();
-  move_base_client_.cancelAllGoals();
-  ros::Duration d(0.5);
-  d.sleep();
-  makePlan();
+  ros::Rate r(5);
   while(ros::ok()) {
+
+    makePlan();
 
     if( as_.isPreemptRequested() || !ros::ok() ) {
       // set the action state to preempted
-      move_base_client_.cancelAllGoals();
-      stop();
       as_.setPreempted();
       break;
     }
 
-    auto move_state = move_base_client_.getState();
-    if(move_state.state_ == 3 || move_state.state_ == 2){
-      makePlan();
-    }
-
-    ros::Duration wait(1);
-    wait.sleep();
-
+    r.sleep();
   }
 
 }
