@@ -158,6 +158,9 @@ def main():
     ms.fatigue_threshold = rospy.get_param('/fatigue_threshold', 5)
     tbs.maximum_dead_time = rospy.get_param('/maximum_dead_time', 2)
 
+    #   Declare the service client
+    pl.person_srv_client = rospy.ServiceProxy('/person_decision', PersonCommand)
+
     #   Retrieve max time in Play and Explore
     pl.max_play_time = rospy.get_param('/max_play_time', 600)
     ex.max_explore_time = rospy.get_param('/max_explore_time', 300)

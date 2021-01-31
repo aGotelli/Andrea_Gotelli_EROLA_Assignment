@@ -87,9 +87,11 @@ void Explore::executeCB(const explore_lite::ExploreGoalConstPtr &goal)
         private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
   }
 
-  ROS_INFO("Waiting to connect to move_base server");
+
   move_base_client_.waitForServer();
-  ROS_INFO("Connected to move_base server");
+  move_base_client_.cancelAllGoals();
+  ros::Duration d(0.5);
+  d.sleep();
   makePlan();
   while(ros::ok()) {
 

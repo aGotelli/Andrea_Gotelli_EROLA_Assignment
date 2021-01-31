@@ -35,6 +35,10 @@ import robot_simulation_state_machines.image_processing as imp
 max_play_time = 600
 
 ##
+#   \brief person_srv_client is the client which interacts with the person through the service "person_decision"
+person_srv_client = None
+
+##
 #   \class Play
 #   \brief This class defines the state of the state machine corresponding to the robot interacting with the person.
 #
@@ -49,8 +53,7 @@ class Play(smach.State):
     #   \brief __init__ is the constructor for the class.
     #
     #   This constructor initializes the outcomes and the input outout keys for this state.
-    #   Moreover, it initializes the service client which requests for the person decision and the
-    #   person position itself.
+    #   Moreover, it initializes the person position.
     #
     def __init__(self):
         smach.State.__init__(self,
@@ -58,7 +61,6 @@ class Play(smach.State):
                              input_keys=['play_fatigue_counter_in', 'start_play_time_in'],
                              output_keys=['play_fatigue_counter_out','play_room_to_find', 'start_play_time_out'])
 
-        self.person_srv_client = rospy.ServiceProxy('/person_decision', PersonCommand)
         self.person_pose = Pose()
         self.person_pose.position.x = -5
         self.person_pose.position.y = 8
@@ -90,6 +92,7 @@ class Play(smach.State):
     #   person node of this decision, resetting the timer for the next call to play.
     #
     def execute(self, userdata):
+        global person_srv_client
         rospy.sleep(1)
         rospy.wait_for_service('/person_decision')
         if userdata.start_play_time_in != 0 :
@@ -108,7 +111,7 @@ class Play(smach.State):
                 #   Reset time in play as we stop
                 userdata.start_play_time_out = 0
                 want_play = False
-                self.person_srv_client(want_play)
+                person_srv_client(want_play)
                 return 'stop_play'
             #   Reach the person position
             print("Reaching person position")
@@ -116,7 +119,7 @@ class Play(smach.State):
             #   Ask for the person choice (which room to reach?)
             print("Waiting for a command from the person")
             want_play = True
-            desired = self.person_srv_client(want_play)
+            desired = person_srv_client(want_play)
             print("Command received: go to the", desired.room)
             available_room = False
             #   Search for the desired room in the rooms list
@@ -137,7 +140,7 @@ class Play(smach.State):
                         #   Reset time in play as we stop
                         userdata.start_play_time_out = 0
                         want_play = False
-                        self.person_srv_client(want_play)
+                        person_srv_client(want_play)
                         #   Return 'tired' to change the state
                         return 'tired'
                     #   Randomly evaluates if leaving the state

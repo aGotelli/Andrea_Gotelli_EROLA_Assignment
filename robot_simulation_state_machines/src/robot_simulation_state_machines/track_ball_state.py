@@ -31,6 +31,7 @@ from robot_simulation_state_machines.reach_goal import reachPosition
 from robot_simulation_state_machines.move_state import isTired
 import robot_simulation_state_machines.image_processing as imp
 import robot_simulation_state_machines.robot_position as rp
+import robot_simulation_state_machines.play_state as pl
 
 
 
@@ -207,14 +208,19 @@ class TrackBall(smach.State):
                     #   Increment the counter for the fatigue as the robot has moved
                     userdata.track_ball_fatigue_counter_out = userdata.track_ball_fatigue_counter_in + 1
                     print('Level of fatigue : ', userdata.track_ball_fatigue_counter_in)
+                    #   Retrieve what was the missing room to look for
+                    room_to_find = userdata.track_room_to_find
                     #   Check if robot is tired now
                     if isTired(userdata.track_ball_fatigue_counter_in) :
                         #   Print a log to inform about the fact that the robot is tired
                         print('Robot is tired of moving...')
+                        #   Check if we were interacting with the person
+                        if room_to_find :
+                            #   Robot was in play, so need to communicate with the person
+                            want_play = False
+                            pl.person_srv_client(want_play)
                         #   Exit with the right condition
                         return 'tired'
-                    #   Retrieve what was the missing room to look for
-                    room_to_find = userdata.track_room_to_find
                     #   Check wheter there is a room to look for
                     if not room_to_find :
                         #   Set to false for avoid bug
