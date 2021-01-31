@@ -90,17 +90,22 @@ void Explore::executeCB(const explore_lite::ExploreGoalConstPtr &goal)
   ROS_INFO("Waiting to connect to move_base server");
   move_base_client_.waitForServer();
   ROS_INFO("Connected to move_base server");
-
+  makePlan();
   while(ros::ok()) {
 
     if( as_.isPreemptRequested() || !ros::ok() ) {
       // set the action state to preempted
       move_base_client_.cancelAllGoals();
+      stop();
       as_.setPreempted();
       break;
     }
 
-    makePlan();
+    auto move_state = move_base_client_.getState();
+    if(move_state.state_ == 3 || move_state.state_ == 2){
+      makePlan();
+    }
+
     ros::Duration wait(1);
     wait.sleep();
 
