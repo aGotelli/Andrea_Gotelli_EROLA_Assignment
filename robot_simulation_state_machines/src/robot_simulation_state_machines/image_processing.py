@@ -68,7 +68,7 @@ detection_time = 0.0
 ##
 #   \brief Is the value for the radius of the circle containing the ball to consider as a
 #           reference value to assume that the ball is "close" to the robot.
-radius_threshold = 80
+radius_threshold = 70
 
 
 ##
@@ -309,6 +309,7 @@ start_time = 0
 ##
 #   \brief  sarCallback is a service callback which returns the list of registered rooms.
 def sarCallback(req):
+    global start_time
     time_elapsed = rospy.Time.now().to_sec() - start_time
     time_elapsed = int(time_elapsed/60)
     global rooms_list

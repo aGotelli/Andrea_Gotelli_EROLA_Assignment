@@ -48,6 +48,7 @@ class Explore(smach.State):
                                  input_keys=['start_explore_time_in'],
                                  output_keys=['start_explore_time_out'])
             self.explore_client = actionlib.SimpleActionClient('explore_action_server',ExploreAction)
+            self.count = 10
     ##
     #   \brief execute is the member function executing the state behavior
     #   \param userdata is the structure containing the data shared among states.
@@ -71,16 +72,17 @@ class Explore(smach.State):
             print("Time passed in Explore state:", "%.3f"%elapsed_time, "[s]")
         else :
             print("Time passed in Explore state:", 0, "[s]")
-            #   Initialize the time if the first time in play
+            #   Initialize the time if the first time in Explore
             userdata.start_explore_time_out = rospy.Time.now().to_sec()
+            self.count = 10
+        time_in_explore = rospy.Time.now().to_sec() - userdata.start_explore_time_in
         #   initialize creating an action service request
         self.explore_client.wait_for_server()
         goal = ExploreGoal()
+        print("Start exploring")
         self.explore_client.send_goal(goal)
         #   Loop until stopping criteria is reached
         while not rospy.is_shutdown():
-            #   Check the time in explore
-            time_in_explore = rospy.Time.now().to_sec() - userdata.start_explore_time_in
             if time_in_explore >= max_explore_time:
                 #   Reset time in play as we stop
                 userdata.start_explore_time_out = 0
@@ -89,4 +91,14 @@ class Explore(smach.State):
             if imp.ball_detected:
                 print("A new ball has been detected!")
                 self.explore_client.cancel_all_goals()
+                rospy.sleep(0.5)
                 return 'track'
+            #   Check the time in explore
+            time_in_explore = rospy.Time.now().to_sec() - userdata.start_explore_time_in
+            percentage = 100*time_in_explore/max_explore_time
+            #   Print the exploration percentage
+            if percentage >= self.count and not self.count == 100:
+                if percentage - self.count < 10:
+                    print(self.count, "% of exploration time")
+                self.count = self.count + 10
+

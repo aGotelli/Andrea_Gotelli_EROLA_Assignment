@@ -85,6 +85,7 @@ class Play(smach.State):
     #   person node of this decision, resetting the timer for the next call to play.
     #
     def execute(self, userdata):
+        rospy.sleep(1)
         rospy.wait_for_service('/person_decision')
         if userdata.start_play_time_in != 0 :
             elapsed_time = rospy.Time.now().to_sec() - userdata.start_play_time_in

@@ -63,6 +63,9 @@ class Rest(smach.State):
     #   to let the robot to move and performs his behaviors.
     #
     def execute(self, userdata):
+        #   Wait two seconds to avoid collision with action service goal cancellation
+        rospy.sleep(2)
+        print("Reaching sleeping station..")
         #   Call the service to reach the position corresponding to the sleeping position
         reachPosition(sleep_station, wait=True)
         #   Sleep for some time

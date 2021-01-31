@@ -169,7 +169,7 @@ class Move(smach.State):
             print("Target seems impossible to reach. Computing a new target")
             self.newTarget()
         else:
-            print("Current distance:", "%.3f"%curr_dist, "is smaller than the previus one:", "%.3f"%self.prev_dist)
+            print("Current distance:", "%.3f"%curr_dist, "[m] is smaller than the previus one:", "%.3f"%self.prev_dist, "[m]")
             self.prev_dist = curr_dist
 
     ##
@@ -218,6 +218,7 @@ class Move(smach.State):
                 planning_client.cancel_all_goals()
                 #   Return 'plying' to change the state
                 timer.shutdown()
+                rospy.sleep(0.5)
                 return 'tracking'
             #   If none of the previous was true, then continue with the Move behavior
             #   Check if the target has been reached

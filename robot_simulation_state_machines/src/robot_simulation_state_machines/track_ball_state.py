@@ -93,7 +93,7 @@ def laserReadingCallback(msg):
         elif regions['right'] < 0.4 :
             #   Turn slightly on the left
             correction_twist.angular.z = 0.1
-        elif regions['fleft'] < 1.5 :
+        elif regions['fleft'] < 1.0 :
             robot_in_danger = True
             #   Slow down and turn on the right
             correction_twist.angular.z = - 0.5
@@ -102,7 +102,7 @@ def laserReadingCallback(msg):
                 #   Reverse motion and turn on the right
                 correction_twist.angular.z = - 1
                 correction_twist.linear.x = - 0.8*imp.robot_twist.linear.x
-        elif regions['fright'] < 1.5 :
+        elif regions['fright'] < 1.0 :
             robot_in_danger = True
             #   Slow down and turn on the left
             correction_twist.angular.z = 0.5
