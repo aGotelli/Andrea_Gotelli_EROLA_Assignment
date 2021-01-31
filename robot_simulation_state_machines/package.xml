@@ -68,7 +68,6 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>tf</build_depend>
   <build_depend>move_base_msgs</build_depend>
-  <build_depend>planning</build_depend>
   <build_depend>gmapping</build_depend>
   <build_depend>explore_lite</build_depend>
 
@@ -89,7 +88,6 @@
   <build_export_depend>cv_bridge</build_export_depend>
   <build_export_depend>image_transport</build_export_depend>
   <build_export_depend>tf</build_export_depend>
-  <build_export_depend>planning</build_export_depend>
   <build_export_depend>move_base_msgs</build_export_depend>
   <build_export_depend>gmapping</build_export_depend>
   <build_export_depend>explore_lite</build_export_depend>
@@ -109,7 +107,6 @@
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>image_transport</exec_depend>
   <exec_depend>tf</exec_depend>
-  <exec_depend>planning</exec_depend>
   <exec_depend>move_base_msgs</exec_depend>
   <exec_depend>gmapping</exec_depend>
   <exec_depend>explore_lite</exec_depend>

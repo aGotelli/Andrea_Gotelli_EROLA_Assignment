@@ -22,7 +22,6 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   cv_bridge
   image_transport
-  planning
   move_base_msgs
   gmapping
   explore_lite

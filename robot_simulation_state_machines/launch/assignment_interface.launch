@@ -32,17 +32,15 @@
     </include>
 
 
-    <include file="$(find planning)/launch/gmapping.launch">
+    <include file="$(find robot_simulation_state_machines)/launch/gmapping_setting.launch">
     </include>
 
-
-    <include file="$(find planning)/launch/move_base.launch">
+    <include file="$(find robot_simulation_state_machines)/launch/move_base_setting.launch">
     </include>
 
 
     <include file="$(find explore_lite)/launch/explore.launch">
     </include>
-
 
 
 </launch>

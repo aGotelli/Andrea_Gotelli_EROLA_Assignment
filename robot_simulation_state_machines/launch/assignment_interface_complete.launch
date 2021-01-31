@@ -32,7 +32,7 @@
     </include>
 
 
-    <include file="$(find planning)/launch/gmapping.launch">
+    <include file="$(find robot_simulation_state_machines)/launch/gmapping_setting.launch">
     </include>
 
 
