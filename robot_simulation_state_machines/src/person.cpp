@@ -148,7 +148,7 @@ int main(int argc, char **argv)
   waiting_time.sleep();
 
   //  Initialize the timer (first call not too far in the future)
-  auto_caller = nh.createTimer( waitingPeriod(20, 30), CallToPlay, true );
+  auto_caller = nh.createTimer( waitingPeriod(120, 180), CallToPlay, true );
 
   //  Main loop
   ros::spin();
